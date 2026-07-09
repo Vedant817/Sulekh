@@ -16,6 +16,7 @@
     "db:reset": "tsx db/migrate.ts --reset",
     "corpus:fetch": "tsx scripts/corpus-fetch.ts",
     "seed:corpus": "tsx db/seed/corpus.ts",
+    "embed:corpus": "tsx scripts/embed-corpus.ts",
     "seed:checklist": "tsx db/seed/checklist.ts",
     "seed:sample-issuer": "tsx db/seed/sample-issuer.ts"
   },
