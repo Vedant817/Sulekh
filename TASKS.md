@@ -27,7 +27,7 @@ Legend: **DoD** links back to `IMPLEMENTATION_PLAN.md` phase exits. Severity of 
 - [ ] **0.6 Health check.** `GET /api/health` reports DB connectivity, corpus row count, live Anthropic ping.
   - **Accept:** endpoint returns green for all three when configured; red (not crash) when a dependency is down. _(Verified against real services: **database ok** (direct probe to real Postgres), **corpus ok** (real count: 0 docs/0 chunks, nothing seeded yet), **anthropic red** — placeholder key returns a genuine 401 from api.anthropic.com, proving the ping reaches the real API; overall `degraded` + HTTP 503, no crash. The red-not-crash branch is fully verified; all-three-green needs a real `ANTHROPIC_API_KEY`. Box stays unchecked until all three observed green.)_
 - [ ] **0.7 GATE — Phase 0 exit.** A signed-in promoter creates an empty IPO project, persisted, on a **deployed** URL.
-  - **Accept:** demonstrate on the Vercel URL: create project → refresh → project still there, scoped to that user.
+  - **Accept:** demonstrate on the Vercel URL: create project → refresh → project still there, scoped to that user. _(Feature built: workspace create-project form + server action (RLS insert, owner_id=auth.uid()) + RLS-scoped project list + empty state. Verified against **real local DB**: promoter creates their own project → persists & visible to them, invisible to another promoter; spoofing another owner_id is rejected (8/8 integration tests). `pnpm build` clean (all routes + proxy). **Gate cannot close** without a deployed Vercel URL + signed-in promoter on cloud Supabase — both external blockers. Box stays unchecked until demonstrated on the deployed URL.)_
 
 ## Phase 1 — Corpus & retrieval
 

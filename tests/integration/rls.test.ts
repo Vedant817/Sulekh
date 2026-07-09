@@ -82,6 +82,41 @@ describe.skipIf(!TEST_DB)("RLS isolation & audit immutability", () => {
     expect(rows.map((r) => r.id)).toEqual([PROJ_B]);
   });
 
+  it("a promoter can create a project they own, and it persists scoped to them", async () => {
+    const projId = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+    await asUser(
+      A,
+      (tx) =>
+        tx`insert into public.ipo_projects (id, owner_id, name)
+           values (${projId}, ${A}, 'A self-serve project')`,
+    );
+    // Persisted & visible to A...
+    const forA = await asUser(
+      A,
+      (tx) => tx`select id from public.ipo_projects where id = ${projId}`,
+    );
+    expect(forA).toHaveLength(1);
+    // ...and invisible to another promoter.
+    const forB = await asUser(
+      B,
+      (tx) => tx`select id from public.ipo_projects where id = ${projId}`,
+    );
+    expect(forB).toHaveLength(0);
+    // cleanup (owned by A -> removed by afterAll cascade, but be explicit).
+    await sql`delete from public.ipo_projects where id = ${projId}`;
+  });
+
+  it("a promoter cannot create a project owned by someone else (RLS insert check)", async () => {
+    await expect(
+      asUser(
+        A,
+        (tx) =>
+          tx`insert into public.ipo_projects (owner_id, name)
+             values (${B}, 'spoofed ownership')`,
+      ),
+    ).rejects.toThrow();
+  });
+
   it("a promoter cannot write to another promoter's project (child table)", async () => {
     await expect(
       asUser(
