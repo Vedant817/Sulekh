@@ -17,7 +17,7 @@ Legend: **DoD** links back to `IMPLEMENTATION_PLAN.md` phase exits. Severity of 
 - [x] **0.1 Repo & scaffold.** Next.js App Router + TS **strict**, Tailwind, ESLint, shadcn/ui initialised; layout matches `START.md` §2.
   - **Accept:** `pnpm dev` serves a page; `pnpm typecheck` and `pnpm lint` clean; `tsconfig` has `"strict": true`. ✓ Verified: `pnpm dev` → HTTP 200 branded landing; `pnpm typecheck` exit 0; `pnpm lint` exit 0; `pnpm build` exit 0; `tsconfig.strict = true`; shadcn/ui initialised (base-ui Button); service/domain dirs per §2 created.
 - [ ] **0.2 CI.** GitHub Actions running typecheck + lint + unit tests on PR.
-  - **Accept:** a PR shows the CI checks running and passing.
+  - **Accept:** a PR shows the CI checks running and passing. _(Offline mode: `.github/workflows/ci.yml` written; steps simulated locally green — `pnpm install --frozen-lockfile`, typecheck, lint, test all exit 0. Box stays unchecked until pushed to the remote and a PR run is observed green.)_
 - [ ] **0.3 Env & config.** `.env.example` committed with all keys from `START.md` §3; typed env loader (`zod`) that fails fast on missing required vars.
   - **Accept:** booting without a required var throws a clear, named error; with vars present, boots clean.
 - [ ] **0.4 Supabase + schema.** pgvector enabled; migrations create all §4.1 tables; RLS policies for `promoter` / `intermediary` / `admin`.
