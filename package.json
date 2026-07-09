@@ -14,6 +14,7 @@
     "test:e2e": "playwright test",
     "db:migrate": "tsx db/migrate.ts",
     "db:reset": "tsx db/migrate.ts --reset",
+    "corpus:fetch": "tsx scripts/corpus-fetch.ts",
     "seed:corpus": "tsx db/seed/corpus.ts",
     "seed:checklist": "tsx db/seed/checklist.ts",
     "seed:sample-issuer": "tsx db/seed/sample-issuer.ts"

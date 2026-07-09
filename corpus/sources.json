@@ -1,0 +1,49 @@
+{
+  "sources": [
+    {
+      "key": "icdr-master-circular",
+      "title": "SEBI Master Circular for Issue of Capital and Disclosure Requirements Regulations, 2018",
+      "type": "icdr",
+      "file": "icdr-master-circular.pdf",
+      "url": "https://www.skylinerta.com/pdf_file/51_1581373179_MasterCircularforIssueofCapitalandDisclosureRequirements-21.06.2023.pdf",
+      "version": "2023-06-21",
+      "required": true
+    },
+    {
+      "key": "sme-framework",
+      "title": "SEBI — Review of the SME segment framework under the ICDR Regulations",
+      "type": "sme_framework",
+      "file": "sme-framework.pdf",
+      "url": "https://www.independentdirectorsdatabank.in/img/newsletter/2024/67517fddb4c17.pdf",
+      "version": "2024",
+      "required": true
+    },
+    {
+      "key": "reference-drhp-1",
+      "title": "DRHP — Monika Alcobev Limited (BSE SME)",
+      "type": "reference_drhp",
+      "file": "reference-drhp-1.pdf",
+      "url": "https://www.bseindia.com/corporates/download/351552/DRHP%20MAL_20250414233235.pdf",
+      "version": "2025-04-14",
+      "required": false
+    },
+    {
+      "key": "reference-drhp-2",
+      "title": "DRHP — Star Imaging and Path Lab Limited (BSE SME)",
+      "type": "reference_drhp",
+      "file": "reference-drhp-2.pdf",
+      "url": "https://www.bseindia.com/corporates/download/393830/DRHP_Star_Imaging_20250326202011.pdf",
+      "version": "2025-03-26",
+      "required": false
+    },
+    {
+      "key": "reference-drhp-3",
+      "title": "DRHP — Vidya Wires Limited (BSE SME)",
+      "type": "reference_drhp",
+      "file": "reference-drhp-3.pdf",
+      "url": "https://www.bseindia.com/corporates/download/333674/IPO%20Prior/1VidyaWiresLtdDRHP_20250111173756.pdf",
+      "version": "2025-01-11",
+      "required": false
+    }
+  ]
+}

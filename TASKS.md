@@ -31,8 +31,8 @@ Legend: **DoD** links back to `IMPLEMENTATION_PLAN.md` phase exits. Severity of 
 
 ## Phase 1 — Corpus & retrieval
 
-- [ ] **1.1 Corpus ingest.** `pnpm seed:corpus` loads `corpus/` sources → `corpus_documents` + chunked `corpus_chunks` with section tags + source refs.
-  - **Accept:** row counts match expected chunking of the placed sources; each chunk retains a resolvable source pointer. If a required source file is absent, the script lists exactly which and exits non-zero (no invented content).
+- [x] **1.1 Corpus ingest.** `pnpm seed:corpus` loads `corpus/` sources → `corpus_documents` + chunked `corpus_chunks` with section tags + source refs.
+  - **Accept:** row counts match expected chunking of the placed sources; each chunk retains a resolvable source pointer. If a required source file is absent, the script lists exactly which and exits non-zero (no invented content). ✓ Verified against real local DB with **real fetched public sources** (SEBI ICDR Master Circular, SEBI SME framework paper, 3 filed BSE SME DRHPs — Monika Alcobev, Star Imaging, Vidya Wires): 5 docs / **3155 chunks** (66+75+970+1035+1009), every chunk has a resolvable `source_ref` (`<file> p.N`) — 0 null/empty pointers, section tags on ~99%; idempotent re-run skips all (checksum-based); removing a required file → lists it + exits 1. unpdf parse verified on 407-/472-/420-page DRHPs. Embeddings populated in 1.2.
 - [ ] **1.2 Embeddings.** Chunks embedded into pgvector via the configured provider.
   - **Accept:** every chunk has a non-null embedding of correct dimensionality; a re-run is idempotent (no duplicate chunks).
 - [ ] **1.3 Requirement checklist seed.** `pnpm seed:checklist` populates `requirement_checklist` (SME/ICDR requirements → section mapping).
