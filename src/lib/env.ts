@@ -57,6 +57,25 @@ export const clientEnvSchema = serverEnvSchema.pick({
 });
 export type ClientEnv = z.infer<typeof clientEnvSchema>;
 
+/**
+ * Client-safe env accessor. Reads only the NEXT_PUBLIC_* variables, which Next
+ * inlines at build time, so this is safe to call in the browser. Throws an
+ * {@link EnvValidationError} if a public var is missing/malformed.
+ */
+export function getClientEnv(): ClientEnv {
+  const result = clientEnvSchema.safeParse({
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  });
+  if (!result.success) {
+    const issues = result.error.issues.map(
+      (issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`,
+    );
+    throw new EnvValidationError(issues);
+  }
+  return result.data;
+}
+
 export class EnvValidationError extends Error {
   constructor(public readonly issues: string[]) {
     super(
