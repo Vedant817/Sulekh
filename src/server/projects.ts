@@ -19,3 +19,15 @@ export async function listProjects(): Promise<Project[]> {
   }
   return data ?? [];
 }
+
+/** Load a single project the current user can access (RLS-scoped), or null. */
+export async function getProject(projectId: string): Promise<Project | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("ipo_projects")
+    .select("*")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to load project: ${error.message}`);
+  return data ?? null;
+}

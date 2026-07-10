@@ -44,10 +44,10 @@ Legend: **DoD** links back to `IMPLEMENTATION_PLAN.md` phase exits. Severity of 
 
 ## Phase 2 — Intake & extraction
 
-- [ ] **2.1 Dynamic intake engine.** Question graph branching on issuer type / sector / offer structure; answers persisted incrementally; resumable.
-  - **Accept:** leaving mid-intake and returning restores all answers; branch logic verified for at least 2 distinct issuer profiles.
-- [ ] **2.2 Intake validation.** `zod` validation per field (types, ranges, mandatory-ness) tied to the checklist.
-  - **Accept:** invalid input is rejected with a clear field-level message; mandatory gaps are recorded (not silently skipped).
+- [x] **2.1 Dynamic intake engine.** Question graph branching on issuer type / sector / offer structure; answers persisted incrementally; resumable.
+  - **Accept:** leaving mid-intake and returning restores all answers; branch logic verified for at least 2 distinct issuer profiles. ✓ Verified: `src/server/intake/questionnaire.ts` (typed graph, section-mapped, branches on issuer_type/offer_structure/gating booleans) — 2 distinct profiles (manufacturing+fresh vs services+OFS) show/hide correctly (unit tests). Versioned incremental persistence (`store.ts`) — integration test against real DB: save 3 answers, "leave", reload → all restored; corrected answer supersedes prior version with history retained. Resumable intake UI (`intake-form.tsx`, autosave + progress) builds. _(Live browser walk-through pending auth/GoTrue; the persistence + branching logic the UI uses are fully verified.)_
+- [x] **2.2 Intake validation.** `zod` validation per field (types, ranges, mandatory-ness) tied to the checklist.
+  - **Accept:** invalid input is rejected with a clear field-level message; mandatory gaps are recorded (not silently skipped). ✓ Verified: `answerSchemaFor`/`validateAnswer` derive a zod validator per question (numeric ranges, select enums, date format, required non-empty) returning clear field-level messages; server action re-validates authoritatively before persist. `intakeProgress().missingRequired` records mandatory gaps over currently-visible questions (hidden branches not counted). Unit tests cover range/enum/required/date rejection + progress.
 - [ ] **2.3 Document upload.** Upload audited financials (PDF/XLSX), MoA/AoA, cap table, litigation register, KMP/promoter KYC → Supabase Storage with signed URLs.
   - **Accept:** a real file uploads, is stored, re-downloadable via signed URL, metadata recorded; oversized/unsupported types rejected gracefully.
 - [ ] **2.4 Parse pipeline.** Real extraction: digital PDF (`unpdf`/`pdf-parse`) + XLSX (SheetJS) → text/tables.
