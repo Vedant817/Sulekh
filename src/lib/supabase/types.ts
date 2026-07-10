@@ -133,6 +133,33 @@ export type Database = {
         }
         Relationships: []
       }
+      drhp_section_catalog: {
+        Row: {
+          created_at: string
+          description: string | null
+          mandatory: boolean
+          ordinal: number
+          section_key: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          mandatory?: boolean
+          ordinal: number
+          section_key: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          mandatory?: boolean
+          ordinal?: number
+          section_key?: string
+          title?: string
+        }
+        Relationships: []
+      }
       drhp_sections: {
         Row: {
           created_at: string
@@ -183,6 +210,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ipo_projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_drhp_section_catalog"
+            columns: ["section_key"]
+            isOneToOne: false
+            referencedRelation: "drhp_section_catalog"
+            referencedColumns: ["section_key"]
           },
         ]
       }
@@ -630,7 +664,15 @@ export type Database = {
           source_citation?: string
           title?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_requirement_section"
+            columns: ["section_key"]
+            isOneToOne: false
+            referencedRelation: "drhp_section_catalog"
+            referencedColumns: ["section_key"]
+          },
+        ]
       }
       requirement_coverage: {
         Row: {

@@ -162,9 +162,12 @@ create policy review_events_insert on public.review_events
 create or replace function public.prevent_review_event_mutation()
 returns trigger language plpgsql as $$
 begin
-  if tg_op = 'DELETE'
-     and current_setting('app.purge_audit', true) = 'on' then
-    return old;
+  -- A deliberate, privileged data-lifecycle purge (app.purge_audit = 'on')
+  -- permits mutation — this also covers FK side-effects of deleting an actor
+  -- account (actor_id ON DELETE SET NULL fires an UPDATE). Without the flag,
+  -- both UPDATE and DELETE are always rejected (tamper-proof append-only log).
+  if current_setting('app.purge_audit', true) = 'on' then
+    return coalesce(new, old);
   end if;
   raise exception 'review_events is append-only; % is not permitted', tg_op;
 end $$;

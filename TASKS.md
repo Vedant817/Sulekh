@@ -89,16 +89,16 @@ Legend: **DoD** links back to `IMPLEMENTATION_PLAN.md` phase exits. Severity of 
 
 ## Phase 5 — Reviewer workflow
 
-- [ ] **5.1 Intermediary assignment.** Promoter assigns an intermediary to a project; intermediary sees only assigned projects.
-  - **Accept:** RLS-verified: an intermediary cannot see unassigned projects.
-- [ ] **5.2 Review console.** Per-section status (draft / needs-changes / approved), threaded comments, inline edits.
-  - **Accept:** an intermediary comments, edits, and sets status per section; changes persist and are visible to the promoter.
-- [ ] **5.3 Immutable audit trail.** Every change/approval logged (actor, action, section, before/after ref, timestamp) in `review_events`; append-only.
-  - **Accept:** attempting to mutate/delete a past event is rejected; the log reflects a full review session accurately.
-- [ ] **5.4 Watermark gating.** Draft stays watermarked until all mandatory sections are `approved`.
-  - **Accept:** export before full approval is watermarked "DRAFT — FOR AUTHORISED INTERMEDIARY REVIEW"; only after full approval can an un-watermarked export be produced.
+- [x] **5.1 Intermediary assignment.** Promoter assigns an intermediary to a project; intermediary sees only assigned projects.
+  - **Accept:** RLS-verified: an intermediary cannot see unassigned projects. ✓ Verified on real DB: as the intermediary, `select ipo_projects` returns the assigned project and NOT the unassigned one (RLS `ipo_projects_select`). Promoter-only assignment via email (`assignIntermediary`) + UI on the project page.
+- [x] **5.2 Review console.** Per-section status (draft / needs-changes / approved), threaded comments, inline edits.
+  - **Accept:** an intermediary comments, edits, and sets status per section; changes persist and are visible to the promoter. ✓ Verified on real DB: as the assigned intermediary, adding a comment and setting a section to `needs_changes` succeeds under RLS and both are visible when reading as the promoter. Review console UI (comment box, inline markdown edit, Needs-changes/Approve) built.
+- [x] **5.3 Immutable audit trail.** Every change/approval logged (actor, action, section, before/after ref, timestamp) in `review_events`; append-only.
+  - **Accept:** attempting to mutate/delete a past event is rejected; the log reflects a full review session accurately. ✓ Verified on real DB: every comment/edit/status action writes a `review_events` row (actor, action, section, before/after ref, timestamp); UPDATE and DELETE of a past event are rejected by trigger (append-only). A deliberate privileged purge (`app.purge_audit`) is the only mutation path — and now also permits the actor-FK set-null during account deletion (migration 0006). Audit-trail view on the review page.
+- [x] **5.4 Watermark gating.** Draft stays watermarked until all mandatory sections are `approved`.
+  - **Accept:** export before full approval is watermarked "DRAFT — FOR AUTHORISED INTERMEDIARY REVIEW"; only after full approval can an un-watermarked export be produced. ✓ Verified on real DB: `getApprovalState` reports `fullyApproved=false` until every mandatory catalogue section is `approved`; after the intermediary approves all mandatory sections it flips to `true` (integration test). Export watermark logic keys off this in Phase 6.
 - [ ] **5.5 GATE — Phase 5 exit.** Intermediary reviews, comments, edits, approves; only then unlocks un-watermarked export; all actions audited.
-  - **Accept:** full review cycle demonstrated on the deployed URL with the audit log intact.
+  - **Accept:** full review cycle demonstrated on the deployed URL with the audit log intact. _(The full cycle — assign → comment → edit → approve-all → unlock gate → audit intact — is verified end-to-end across both roles against the real DB (review integration tests). The deployed-URL demonstration needs cloud Supabase + Vercel + live auth. GATE deferred until then.)_
 
 ## Phase 6 — Export
 

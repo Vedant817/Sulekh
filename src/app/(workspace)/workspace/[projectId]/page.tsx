@@ -1,15 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { getCurrentUser } from "@/lib/auth";
 import { intakeProgress } from "@/server/intake/questionnaire";
 import { loadAnswers } from "@/server/intake/store";
 import { getProject } from "@/server/projects";
 
+import { AssignForm } from "./assign-form";
+
 const STAGES = [
-  { key: "intake", label: "Guided intake", href: (id: string) => `/workspace/${id}/intake`, ready: true },
-  { key: "documents", label: "Documents & extraction", href: (id: string) => `/workspace/${id}/documents`, ready: true },
-  { key: "generate", label: "Generate draft", href: (id: string) => `/workspace/${id}/generate`, ready: true },
-  { key: "gaps", label: "Gaps & coverage", href: (id: string) => `/workspace/${id}/gaps`, ready: true },
+  { key: "intake", label: "Guided intake", href: (id: string) => `/workspace/${id}/intake` },
+  { key: "documents", label: "Documents & extraction", href: (id: string) => `/workspace/${id}/documents` },
+  { key: "generate", label: "Generate draft", href: (id: string) => `/workspace/${id}/generate` },
+  { key: "gaps", label: "Gaps & coverage", href: (id: string) => `/workspace/${id}/gaps` },
+  { key: "review", label: "Intermediary review", href: (id: string) => `/workspace/${id}/review` },
 ];
 
 export default async function ProjectPage({
@@ -18,11 +22,12 @@ export default async function ProjectPage({
   params: Promise<{ projectId: string }>;
 }) {
   const { projectId } = await params;
-  const project = await getProject(projectId);
+  const [user, project] = await Promise.all([getCurrentUser(), getProject(projectId)]);
   if (!project) notFound();
 
   const answers = await loadAnswers(projectId);
   const progress = intakeProgress(answers);
+  const isOwner = user?.id === project.owner_id;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
@@ -60,6 +65,10 @@ export default async function ProjectPage({
           </Link>
         ))}
       </div>
+
+      {isOwner ? (
+        <AssignForm projectId={projectId} assigned={Boolean(project.assigned_intermediary_id)} />
+      ) : null}
     </div>
   );
 }
