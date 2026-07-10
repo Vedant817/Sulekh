@@ -8,7 +8,7 @@ Ship a **fully functional, production-grade** application — not an MVP, not a 
 ## How you work
 1. Always state which `TASKS.md` task you are on before starting it.
 2. Do tasks in order; respect phase GATE tasks — never skip a gate.
-3. A task is done only when its **Accept** bullets are run and observed to pass against real DB / real Claude API / real files. Record how you verified in the PR description.
+3. A task is done only when its **Accept** bullets are run and observed to pass against real DB / real LLM (Groq) API / real files. Record how you verified in the PR description.
 4. Keep `main` always runnable and deployable. Work on a branch, open a PR, keep changes reviewable.
 5. Update the checkbox in `TASKS.md` only after acceptance is verified.
 6. **Commit as each task completes — never in one large end-of-session batch.** One commit (or small tightly-related group) per task ID, pushed right after, formatted `[<task-id>] <short description>`.
@@ -20,12 +20,12 @@ Ship a **fully functional, production-grade** application — not an MVP, not a 
 - **Grounded generation only.** Generated DRHP sections must be grounded in confirmed issuer data + retrieved regulatory requirements, with persisted provenance. Instruct the model to emit `[[GAP: …]]` rather than guess. Never trust the model's self-reported coverage — verify independently against the checklist.
 - **Preserve the intermediary gate.** No un-watermarked export before an authorised intermediary approves all mandatory sections. Never build any submission-to-regulator/exchange path.
 - **Human-in-the-loop on extraction.** Extracted values must be confirmed by the promoter before they enter a draft.
-- **Errors surface.** Wrap Claude/API/DB calls with retry + backoff; on final failure, surface a clear UI error and log it. Never swallow errors or return silent empty results.
+- **Errors surface.** Wrap LLM/API/DB calls with retry + backoff; on final failure, surface a clear UI error and log it. Never swallow errors or return silent empty results.
 - **Security.** Secrets only via env (typed loader). Enforce Supabase RLS. No user/PII data in URLs or query strings.
 
 ## Tech constraints
 - Next.js App Router + TypeScript **strict**. `zod` for all boundaries (shared client/server schemas in `src/schemas/`).
-- Anthropic SDK; models from `MODEL_DRAFTING` / `MODEL_REASONING` env vars (never hardcode model ids).
+- Groq SDK (OpenAI-compatible); models from `MODEL_DRAFTING` / `MODEL_REASONING` env vars (never hardcode model ids).
 - Supabase (Postgres + pgvector + Auth + Storage). Migrations in `db/migrations`, idempotent seeds in `db/seed`.
 - DOCX via `docx`; PDF via server render. Exports must open cleanly in Word and a PDF viewer.
 - For any UI work, follow the `frontend-design` skill's tokens and accessibility guidance; components via shadcn/ui; handle empty/loading/error states everywhere.

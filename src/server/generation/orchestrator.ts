@@ -12,7 +12,7 @@ import { generationOrder, type CatalogSection } from "@/server/generation/sectio
  * coverage, and gap flags, while streaming progress via generation_jobs.
  *
  * The drafter is injected so the whole pipeline is testable without a live LLM;
- * production passes the Claude-backed drafter (claude-drafter.ts).
+ * production passes the Groq-backed drafter (groq-drafter.ts).
  */
 
 export type SectionRequirement = RequirementRef & {

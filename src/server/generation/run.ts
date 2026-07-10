@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
-import { claudeDrafter } from "@/server/generation/claude-drafter";
+import { groqDrafter } from "@/server/generation/groq-drafter";
 import { createGenerationJob, generateDraft } from "@/server/generation/orchestrator";
 
 /**
@@ -15,7 +15,7 @@ import { createGenerationJob, generateDraft } from "@/server/generation/orchestr
 export async function startGeneration(projectId: string): Promise<string> {
   const sql = getSql();
   const jobId = await createGenerationJob(sql, projectId);
-  void generateDraft(sql, projectId, claudeDrafter, { jobId }).catch(() => {
+  void generateDraft(sql, projectId, groqDrafter, { jobId }).catch(() => {
     // generateDraft already records the failure on the job row.
   });
   return jobId;

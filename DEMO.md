@@ -2,7 +2,7 @@
 
 A cold, end-to-end run for the jury. Target: **intake → confirmed data → generated draft → gaps → intermediary review → watermarked/final export**, showing grounding and the human-in-the-loop gates.
 
-> Prerequisite (one-time): real services configured (`ANTHROPIC_API_KEY`, `EMBEDDINGS_API_KEY`, cloud Supabase, Vercel) per `START.md`, then:
+> Prerequisite (one-time): real services configured (`GROQ_API_KEY`, `EMBEDDINGS_API_KEY`, cloud Supabase, Vercel) per `START.md`, then:
 > ```
 > pnpm db:migrate && pnpm seed:corpus && pnpm embed:corpus && pnpm seed:checklist && pnpm seed:sample-issuer
 > ```

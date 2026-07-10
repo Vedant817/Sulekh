@@ -3,7 +3,7 @@ import "server-only";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
-import { getAnthropic, getModels } from "@/lib/anthropic";
+import { getGroq, getModels } from "@/lib/groq";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   DOC_TYPE_ENTITIES,
@@ -47,27 +47,18 @@ export async function extractEntities(
   const truncated = text.length > MAX_TEXT_CHARS;
   const body = truncated ? text.slice(0, MAX_TEXT_CHARS) : text;
 
-  const client = getAnthropic();
+  const client = getGroq();
   const model = opts.model ?? getModels().drafting;
   const toolName = "record_entities";
 
-  // Forced tool use gives a structured, schema-shaped result. Thinking is
-  // disabled for this deterministic extraction (also avoids the thinking +
-  // forced-tool_choice constraint).
-  const response = await client.messages.create({
+  // Forced function calling gives a structured, schema-shaped result;
+  // temperature 0 for deterministic extraction.
+  const response = await client.chat.completions.create({
     model,
     max_tokens: 16000,
-    thinking: { type: "disabled" },
-    system: EXTRACTION_GUIDANCE,
-    tools: [
-      {
-        name: toolName,
-        description: `Record the "${entityType}" entities extracted from the document.`,
-        input_schema: inputSchema as never,
-      },
-    ],
-    tool_choice: { type: "tool", name: toolName },
+    temperature: 0,
     messages: [
+      { role: "system", content: EXTRACTION_GUIDANCE },
       {
         role: "user",
         content:
@@ -78,19 +69,34 @@ export async function extractEntities(
           `\n\n---\n${body}`,
       },
     ],
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: toolName,
+          description: `Record the "${entityType}" entities extracted from the document.`,
+          parameters: inputSchema,
+        },
+      },
+    ],
+    tool_choice: { type: "function", function: { name: toolName } },
   });
 
-  const toolUse = response.content.find(
-    (b): b is Extract<typeof b, { type: "tool_use" }> => b.type === "tool_use",
-  );
-  if (!toolUse) {
+  const call = response.choices[0]?.message?.tool_calls?.[0];
+  if (!call) {
     // No structured result — surface loudly, never a silent empty.
     throw new Error(
-      `Structured extraction for ${entityType} returned no tool output (stop_reason: ${response.stop_reason}).`,
+      `Structured extraction for ${entityType} returned no tool output (finish_reason: ${response.choices[0]?.finish_reason}).`,
     );
   }
 
-  const parsed = outputSchema.safeParse(toolUse.input);
+  let raw: unknown;
+  try {
+    raw = JSON.parse(call.function.arguments);
+  } catch {
+    throw new Error(`Extraction for ${entityType} returned invalid JSON arguments.`);
+  }
+  const parsed = outputSchema.safeParse(raw);
   if (!parsed.success) {
     throw new Error(
       `Extraction for ${entityType} did not match the expected schema: ${parsed.error.issues[0]?.message ?? "invalid"}`,

@@ -11,7 +11,7 @@ Read order: **`START.md` → `IMPLEMENTATION_PLAN.md` → `TASKS.md`**, plus you
 - Node.js 20 LTS+ and pnpm (`corepack enable && corepack prepare pnpm@latest --activate`)
 - Git, GitHub CLI (`gh`) authenticated to the **scaiorg** org
 - A Supabase project (Postgres + Auth + Storage; **pgvector enabled**)
-- An **Anthropic API key** (`ANTHROPIC_API_KEY`)
+- An **Groq API key** (`GROQ_API_KEY`)
 - An embeddings provider key (configurable; see `.env.example`)
 - Vercel account (for demo deploy)
 
@@ -53,7 +53,7 @@ pnpm create next-app@latest . --typescript --tailwind --eslint --app --src-dir -
 Enable TypeScript **strict** mode and add the shared tooling:
 
 ```bash
-pnpm add zod @supabase/supabase-js @supabase/ssr @anthropic-ai/sdk docx
+pnpm add zod @supabase/supabase-js @supabase/ssr groq-sdk docx
 pnpm add -D vitest @playwright/test @types/node
 pnpm add class-variance-authority tailwind-merge lucide-react   # shadcn/ui deps
 pnpm dlx shadcn@latest init
@@ -68,14 +68,14 @@ drhp-studio/
 │   ├── components/             # UI (shadcn-based)
 │   ├── server/
 │   │   ├── intake/             # Intake Service
-│   │   ├── extraction/         # Extraction Service (parse + Claude structured extraction)
+│   │   ├── extraction/         # Extraction Service (parse + LLM structured extraction)
 │   │   ├── retrieval/          # RAG over corpus (pgvector)
 │   │   ├── generation/         # Generation Orchestrator (agentic, per-section)
 │   │   ├── gaps/               # Gap & Consistency Engine
 │   │   ├── review/             # Review Service + audit log
 │   │   ├── export/             # DOCX/PDF + coverage report
 │   │   └── adapters/           # External data adapters (default = real upload/lookup)
-│   ├── lib/                    # supabase client, anthropic client, env, utils
+│   ├── lib/                    # supabase client, groq client, env, utils
 │   └── schemas/                # zod schemas shared client+server
 ├── db/
 │   ├── migrations/             # SQL migrations
@@ -101,10 +101,10 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
-# Anthropic
-ANTHROPIC_API_KEY=
-MODEL_DRAFTING=claude-sonnet-5
-MODEL_REASONING=claude-opus-4-8
+# Groq
+GROQ_API_KEY=
+MODEL_DRAFTING=openai/gpt-oss-20b
+MODEL_REASONING=openai/gpt-oss-120b
 
 # Embeddings (configurable provider)
 EMBEDDINGS_API_KEY=
@@ -158,7 +158,7 @@ pnpm test           # vitest unit
 pnpm test:e2e       # playwright — the happy path must go green before demo
 ```
 
-Health check: `GET /api/health` returns DB connectivity, corpus row count, and a live Anthropic ping (non-secret). If any is red, fix before proceeding.
+Health check: `GET /api/health` returns DB connectivity, corpus row count, and a live Groq ping (non-secret). If any is red, fix before proceeding.
 
 ---
 

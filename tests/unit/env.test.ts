@@ -6,7 +6,7 @@ const validRaw = {
   NEXT_PUBLIC_SUPABASE_URL: "https://proj.supabase.co",
   NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
   SUPABASE_SERVICE_ROLE_KEY: "service-key",
-  ANTHROPIC_API_KEY: "sk-ant-xxx",
+  GROQ_API_KEY: "gsk-xxx",
   MODEL_DRAFTING: "claude-sonnet-5",
   MODEL_REASONING: "claude-opus-4-8",
   EMBEDDINGS_API_KEY: "emb-key",
@@ -17,7 +17,7 @@ const validRaw = {
 describe("parseServerEnv", () => {
   it("parses a complete config and applies typed defaults", () => {
     const env = parseServerEnv(validRaw);
-    expect(env.ANTHROPIC_API_KEY).toBe("sk-ant-xxx");
+    expect(env.GROQ_API_KEY).toBe("gsk-xxx");
     expect(env.EMBEDDINGS_PROVIDER).toBe("gemini");
     expect(env.EMBEDDINGS_DIM).toBe(768);
     expect(typeof env.EMBEDDINGS_DIM).toBe("number");
@@ -33,8 +33,8 @@ describe("parseServerEnv", () => {
   });
 
   it("throws a clear, named error when a required var is missing", () => {
-    const { ANTHROPIC_API_KEY, ...missing } = validRaw;
-    void ANTHROPIC_API_KEY;
+    const { GROQ_API_KEY, ...missing } = validRaw;
+    void GROQ_API_KEY;
     expect(() => parseServerEnv(missing)).toThrow(EnvValidationError);
     try {
       parseServerEnv(missing);
@@ -42,21 +42,21 @@ describe("parseServerEnv", () => {
     } catch (err) {
       expect(err).toBeInstanceOf(EnvValidationError);
       const e = err as EnvValidationError;
-      expect(e.message).toContain("ANTHROPIC_API_KEY");
-      expect(e.issues.some((i) => i.includes("ANTHROPIC_API_KEY"))).toBe(true);
+      expect(e.message).toContain("GROQ_API_KEY");
+      expect(e.issues.some((i) => i.includes("GROQ_API_KEY"))).toBe(true);
     }
   });
 
   it("names every offending var, not just the first", () => {
-    const { ANTHROPIC_API_KEY, EMBEDDINGS_API_KEY, ...missing } = validRaw;
-    void ANTHROPIC_API_KEY;
+    const { GROQ_API_KEY, EMBEDDINGS_API_KEY, ...missing } = validRaw;
+    void GROQ_API_KEY;
     void EMBEDDINGS_API_KEY;
     try {
       parseServerEnv(missing);
       expect.unreachable("should have thrown");
     } catch (err) {
       const e = err as EnvValidationError;
-      expect(e.message).toContain("ANTHROPIC_API_KEY");
+      expect(e.message).toContain("GROQ_API_KEY");
       expect(e.message).toContain("EMBEDDINGS_API_KEY");
     }
   });

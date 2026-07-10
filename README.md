@@ -15,7 +15,7 @@ DRHP Studio captures an SME issuer's business, financial, and legal particulars 
 
 ## Stack
 
-Next.js (App Router) · TypeScript strict · Tailwind CSS v4 + shadcn/ui · Supabase (Postgres + pgvector + Auth + Storage) · Anthropic Claude API · `docx`/server-rendered PDF · `zod` · Vitest + Playwright.
+Next.js (App Router) · TypeScript strict · Tailwind CSS v4 + shadcn/ui · Supabase (Postgres + pgvector + Auth + Storage) · Groq LLM API (OpenAI-compatible) · `docx`/server-rendered PDF · `zod` · Vitest + Playwright.
 
 ## Local development
 

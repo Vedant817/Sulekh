@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getAnthropic, getModels } from "@/lib/anthropic";
+import { getGroq, getModels } from "@/lib/groq";
 import { getSql } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -57,11 +57,11 @@ async function checkDatabaseAndCorpus(): Promise<{ database: Check; corpus: Chec
   };
 }
 
-/** Live, non-secret Anthropic ping via the models endpoint (no token spend). */
-async function checkAnthropic(): Promise<Check> {
-  const client = getAnthropic();
+/** Live, non-secret Groq ping via the models endpoint (no token spend). */
+async function checkGroq(): Promise<Check> {
+  const client = getGroq();
   const { drafting, reasoning } = getModels();
-  const models = await withTimeout(client.models.list({ limit: 20 }), "anthropic");
+  const models = await withTimeout(client.models.list(), "groq");
   return {
     status: "ok",
     detail: "reachable",
@@ -73,9 +73,9 @@ async function checkAnthropic(): Promise<Check> {
 }
 
 export async function GET() {
-  const [dbCorpus, anthropic] = await Promise.allSettled([
+  const [dbCorpus, groq] = await Promise.allSettled([
     checkDatabaseAndCorpus(),
-    checkAnthropic(),
+    checkGroq(),
   ]);
 
   let database: Check;
@@ -93,7 +93,7 @@ export async function GET() {
   const checks = {
     database,
     corpus,
-    anthropic: toCheck(anthropic, "anthropic unavailable"),
+    groq: toCheck(groq, "groq unavailable"),
   };
 
   const healthy = Object.values(checks).every((c) => c.status === "ok");

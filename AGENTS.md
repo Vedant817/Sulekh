@@ -28,7 +28,7 @@ Deliver a **fully functional, production-grade** system — real DB, real auth, 
 ## Stack & structure
 - Next.js App Router, TypeScript strict, Tailwind + shadcn/ui.
 - Supabase (Postgres + pgvector + Auth + Storage); migrations `db/migrations`, seeds `db/seed`.
-- Anthropic SDK; model ids from `MODEL_DRAFTING` / `MODEL_REASONING` env (never hardcoded).
+- Groq SDK (OpenAI-compatible); model ids from `MODEL_DRAFTING` / `MODEL_REASONING` env (never hardcoded).
 - `zod` at every boundary; shared schemas in `src/schemas/`.
 - DOCX via `docx`; PDF via server render; exports must open cleanly in Word and a PDF viewer.
 - Service layout under `src/server/{intake,extraction,retrieval,generation,gaps,review,export,adapters}` (see `START.md` §2).

@@ -24,8 +24,8 @@ export const serverEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: nonEmpty("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
   SUPABASE_SERVICE_ROLE_KEY: nonEmpty("SUPABASE_SERVICE_ROLE_KEY"),
 
-  // Anthropic
-  ANTHROPIC_API_KEY: nonEmpty("ANTHROPIC_API_KEY"),
+  // Groq (LLM provider — OpenAI-compatible; hosts Llama / GPT-OSS / Kimi etc.)
+  GROQ_API_KEY: nonEmpty("GROQ_API_KEY"),
   MODEL_DRAFTING: nonEmpty("MODEL_DRAFTING"),
   MODEL_REASONING: nonEmpty("MODEL_REASONING"),
 

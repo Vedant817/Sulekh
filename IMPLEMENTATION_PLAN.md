@@ -67,7 +67,7 @@ Full draft covering all **material disclosure sections of ICDR Part A** as appli
 └───────┬─────────────────────┬───────────────────────┬───────────────────┘
         │                     │                       │
 ┌───────▼───────┐   ┌─────────▼─────────┐   ┌─────────▼──────────┐
-│  Postgres      │   │  Anthropic Claude │   │  Object storage    │
+│  Postgres      │   │  Groq LLM │   │  Object storage    │
 │  (Supabase)    │   │  API              │   │  (Supabase Storage)│
 │  + pgvector    │   │  drafting +       │   │  uploads + exports │
 │  app data +    │   │  extraction +     │   │                    │
@@ -78,9 +78,9 @@ Full draft covering all **material disclosure sections of ICDR Part A** as appli
 ### 2.2 Services (each is a real module with tests)
 
 - **Intake Service** — serves a dynamic questionnaire whose branches depend on issuer type, sector, and offer structure. Persists answers incrementally (resumable). Validates types, ranges, and mandatory-ness per the SME framework.
-- **Extraction Service** — accepts uploaded PDFs/XLSX (audited financials, incorporation docs, cap table, litigation register). Uses a real parse pipeline (see §5) → Claude structured-extraction → normalised entities. Always surfaces extracted values for promoter confirmation before use.
+- **Extraction Service** — accepts uploaded PDFs/XLSX (audited financials, incorporation docs, cap table, litigation register). Uses a real parse pipeline (see §5) → LLM structured-extraction → normalised entities. Always surfaces extracted values for promoter confirmation before use.
 - **Retrieval Service** — RAG over the embedded regulatory corpus (ICDR Regulations, SME DRHP template/checklist, 2–3 reference DRHPs). Returns the specific requirement clauses relevant to each section so generation is grounded and citable.
-- **Generation Orchestrator** — the agentic core. For each DRHP section: assembles (issuer data + retrieved requirements + section template) → prompts Claude → produces draft prose + a provenance record + a per-requirement coverage map. Runs sections in dependency order (e.g. Capital Structure before Basis for Issue Price).
+- **Generation Orchestrator** — the agentic core. For each DRHP section: assembles (issuer data + retrieved requirements + section template) → prompts the LLM → produces draft prose + a provenance record + a per-requirement coverage map. Runs sections in dependency order (e.g. Capital Structure before Basis for Issue Price).
 - **Gap & Consistency Engine** — two layers: (a) **rule-based** coverage check against the SME requirement checklist (is each mandatory disclosure present and non-empty?); (b) **cross-section reconciliation** (do share-capital figures agree across cap structure, financials, and objects; do totals foot; are dates consistent). Emits actionable flags with severity.
 - **Review Service** — intermediary console: per-section status (draft / needs-changes / approved), threaded comments, inline edits, immutable audit trail of who changed/approved what and when.
 - **Export Service** — deterministic DOCX (via `docx`) and PDF renderers producing SEBI-style formatting; watermarks "DRAFT — FOR AUTHORISED INTERMEDIARY REVIEW" until fully approved; emits a coverage report (JSON + human-readable) mapping every requirement to its status and evidence.
@@ -101,9 +101,9 @@ Full draft covering all **material disclosure sections of ICDR Part A** as appli
 | DB | **Postgres via Supabase** + **pgvector** | App data + corpus embeddings in one place |
 | Auth | **Supabase Auth** | Email/password + magic link; row-level security |
 | Storage | **Supabase Storage** | Uploaded source docs + generated exports; signed URLs |
-| LLM | **Anthropic Claude API** | Drafting: `claude-sonnet-5`; hard reasoning/gap analysis: `claude-opus-4-8`. Model IDs in env, swappable. |
+| LLM | **Groq LLM API (OpenAI-compatible)** | Drafting: `openai/gpt-oss-20b`; hard reasoning/gap analysis: `openai/gpt-oss-120b`. Model IDs in env, swappable. |
 | Embeddings | Provider-hosted embedding model (configurable) → pgvector | For RAG over the corpus |
-| Doc parsing | `unpdf`/`pdf-parse` + `xlsx` (SheetJS) + Claude structured extraction | Real parse, no OCR assumption for v1 (digital PDFs); OCR path documented |
+| Doc parsing | `unpdf`/`pdf-parse` + `xlsx` (SheetJS) + LLM structured extraction | Real parse, no OCR assumption for v1 (digital PDFs); OCR path documented |
 | DOCX export | `docx` (npm) | Deterministic, template-driven |
 | PDF export | Server-side render of the DOCX/HTML → PDF (`puppeteer` or `docx`→PDF) | Watermarking supported |
 | Validation | `zod` end-to-end | Shared schemas client + server |
@@ -153,7 +153,7 @@ Cover page & general info · Definitions & abbreviations · Risk factors · Intr
 
 1. Upload → store → detect type (PDF/XLSX) → record `parse status = pending`.
 2. **Text/table extraction**: digital PDFs via `unpdf`/`pdf-parse`; spreadsheets via SheetJS. (Scanned-PDF OCR is a documented v2 path; v1 assumes digital audited statements, which is the norm.)
-3. **Structured extraction**: extracted text/tables + a section-specific schema (zod) → Claude structured-output call → typed entities (e.g. restated P&L line items, cap-table rows).
+3. **Structured extraction**: extracted text/tables + a section-specific schema (zod) → LLM structured-output call → typed entities (e.g. restated P&L line items, cap-table rows).
 4. **Confirmation**: entities are shown to the promoter with the source snippet; promoter confirms or corrects. Only confirmed entities feed generation.
 5. **Reconciliation hooks**: confirmed financial entities feed the consistency engine (§2.2) so cross-section checks are real.
 
@@ -163,13 +163,13 @@ Cover page & general info · Definitions & abbreviations · Risk factors · Intr
 
 For each section, in dependency order:
 1. **Assemble context**: confirmed issuer data relevant to the section + retrieved requirement clauses (Retrieval Service) + section template + style reference.
-2. **Draft**: Claude generates disclosure prose constrained to the supplied facts; instructed to emit `[[GAP: <what's missing>]]` markers rather than invent unknowns.
+2. **Draft**: the LLM generates disclosure prose constrained to the supplied facts; instructed to emit `[[GAP: <what's missing>]]` markers rather than invent unknowns.
 3. **Coverage map**: model returns which checklist requirements it addressed; Gap Engine verifies independently (never trust the model's self-report alone).
 4. **Provenance**: persist which intake fields + which corpus citations produced the section.
 5. **Queue for review**: section enters reviewer console as `draft`.
 6. **Progress**: `generation_jobs` streams progress to the UI (real-time), section by section.
 
-Model routing: default `claude-sonnet-5` for narrative sections; escalate to `claude-opus-4-8` for reasoning-heavy sections (Basis for Issue Price, Risk Factors prioritisation, MD&A). Configurable via env.
+Model routing: default `openai/gpt-oss-20b` for narrative sections; escalate to `openai/gpt-oss-120b` for reasoning-heavy sections (Basis for Issue Price, Risk Factors prioritisation, MD&A). Configurable via env.
 
 ---
 
@@ -190,11 +190,11 @@ This keeps the running app fully functional on real inputs today, and API-ready 
 
 ## 8. Environments, security, hosting
 
-- **Secrets** in env only (`.env.local` dev, Vercel/host env prod). Never commit keys. `ANTHROPIC_API_KEY`, Supabase URL/keys, embedding key, model IDs.
+- **Secrets** in env only (`.env.local` dev, Vercel/host env prod). Never commit keys. `GROQ_API_KEY`, Supabase URL/keys, embedding key, model IDs.
 - **Auth & isolation**: Supabase RLS so a promoter sees only their projects; intermediaries see only assigned projects; audit log immutable.
 - **PII & data localization**: uploaded financials and promoter data are sensitive. Demo runs on Vercel; production section documents the India-region path (Supabase India region / AWS Mumbai, MeitY-empanelled) per SEBI's cyber-resilience and localization expectations. No user data in URLs/query strings.
 - **No auto-submission** to any regulator/exchange, by design.
-- **Rate/limit handling**: Claude calls wrapped with retry/backoff; token usage tracked per job.
+- **Rate/limit handling**: LLM calls wrapped with retry/backoff; token usage tracked per job.
 
 ---
 
@@ -202,7 +202,7 @@ This keeps the running app fully functional on real inputs today, and API-ready 
 
 - **Phase 0 — Foundation.** Repo, Next.js+TS strict, Tailwind+shadcn, Supabase project, schema migrations, auth with roles, RLS, CI (typecheck+lint+test), env wiring, health checks. *Exit:* a signed-in promoter can create an empty IPO project persisted in Postgres, on a deployed URL.
 - **Phase 1 — Corpus & retrieval.** Ingest + chunk + embed ICDR / SME framework / reference DRHPs into pgvector. Retrieval Service returns relevant requirement clauses for a given section. Seed `requirement_checklist`. *Exit:* querying a section returns correct, cited requirement clauses, verified against the source.
-- **Phase 2 — Intake & extraction.** Dynamic guided interview persisted + resumable; document upload; real parse → Claude structured extraction → promoter confirmation. *Exit:* a promoter completes intake, uploads real audited financials, and confirms correctly-extracted structured entities.
+- **Phase 2 — Intake & extraction.** Dynamic guided interview persisted + resumable; document upload; real parse → LLM structured extraction → promoter confirmation. *Exit:* a promoter completes intake, uploads real audited financials, and confirms correctly-extracted structured entities.
 - **Phase 3 — Generation.** Orchestrator drafts all §4.3 sections grounded + provenance-tracked, with live progress. *Exit:* a full draft is generated for the sample issuer from real intake, every section grounded and traceable, gaps marked not invented.
 - **Phase 4 — Gap & consistency engine.** Rule-based coverage + cross-section reconciliation; actionable flags with jump-to-fix; coverage report. *Exit:* engine correctly flags a deliberately-omitted disclosure and a deliberately-inconsistent figure, and passes clean on a complete consistent draft.
 - **Phase 5 — Reviewer workflow.** Intermediary console, comments, edits, per-section approval, immutable audit trail, watermark gating. *Exit:* an intermediary can review, comment, edit, approve, and only then unlock an un-watermarked export; every action is in the audit log.
