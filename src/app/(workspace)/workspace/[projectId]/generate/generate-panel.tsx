@@ -108,7 +108,8 @@ export function GeneratePanel({
             {status.sections.map((s) => (
               <li
                 key={s.sectionKey}
-                className="flex items-center justify-between rounded-lg border p-3 text-sm"
+                id={s.sectionKey}
+                className="flex items-center justify-between scroll-mt-20 rounded-lg border p-3 text-sm"
               >
                 <span className="font-medium">{s.title}</span>
                 <span className="text-xs text-muted-foreground">

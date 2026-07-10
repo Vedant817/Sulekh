@@ -9,6 +9,7 @@ const STAGES = [
   { key: "intake", label: "Guided intake", href: (id: string) => `/workspace/${id}/intake`, ready: true },
   { key: "documents", label: "Documents & extraction", href: (id: string) => `/workspace/${id}/documents`, ready: true },
   { key: "generate", label: "Generate draft", href: (id: string) => `/workspace/${id}/generate`, ready: true },
+  { key: "gaps", label: "Gaps & coverage", href: (id: string) => `/workspace/${id}/gaps`, ready: true },
 ];
 
 export default async function ProjectPage({

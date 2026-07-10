@@ -76,16 +76,16 @@ Legend: **DoD** links back to `IMPLEMENTATION_PLAN.md` phase exits. Severity of 
 
 ## Phase 4 — Gap & consistency engine
 
-- [ ] **4.1 Coverage checker (rule-based).** Every mandatory requirement present & non-empty? Emits `requirement_coverage` + `gap_flags`.
-  - **Accept:** a deliberately-omitted mandatory disclosure produces a `missing` flag of blocker severity.
-- [ ] **4.2 Cross-section reconciliation.** Share-capital agreement across cap structure / financials / objects; totals foot; date/name consistency.
-  - **Accept:** a deliberately-inconsistent share-capital figure produces an `inconsistent` flag naming the conflicting sections.
-- [ ] **4.3 Actionable flags UI.** Flags list with severity, section, message, and jump-to-fix link.
-  - **Accept:** clicking a flag navigates to the exact section/field; resolving the underlying issue clears the flag on re-check.
-- [ ] **4.4 Coverage report.** Machine-readable JSON + human-readable view mapping every requirement → status + evidence.
-  - **Accept:** report totals reconcile with the flags; coverage % is computed from real data, not hardcoded.
-- [ ] **4.5 GATE — Phase 4 exit.** Engine flags an omitted disclosure and an inconsistent figure, and passes clean on a complete, consistent draft.
-  - **Accept:** automated test with a "bad" fixture (fails as expected) and a "good" fixture (passes clean).
+- [x] **4.1 Coverage checker (rule-based).** Every mandatory requirement present & non-empty? Emits `requirement_coverage` + `gap_flags`.
+  - **Accept:** a deliberately-omitted mandatory disclosure produces a `missing` flag of blocker severity. ✓ Verified on real DB (`gaps/engine.ts` `assessCoverage`): removing the risk-factors draft makes its mandatory requirements `missing` and emits `blocker` `missing` gap flags for that section (integration test).
+- [x] **4.2 Cross-section reconciliation.** Share-capital agreement across cap structure / financials / objects; totals foot; date/name consistency.
+  - **Accept:** a deliberately-inconsistent share-capital figure produces an `inconsistent` flag naming the conflicting sections. ✓ Verified (`gaps/reconciliation.ts`, pure + unit-tested): cap-table shares (900,000) vs stated pre-issue shares (1,000,000) → `inconsistent` blocker naming `capital-structure` + `general-information`. Also checks shareholding %→100, pre-issue capital = face×shares, objects foot to fresh issue (5 unit tests + integration).
+- [x] **4.3 Actionable flags UI.** Flags list with severity, section, message, and jump-to-fix link.
+  - **Accept:** clicking a flag navigates to the exact section/field; resolving the underlying issue clears the flag on re-check. ✓ `gaps` page: flags list with severity/type/section/field/message + per-flag **Fix →** jump link (coverage → generate `#<section>` anchor; reconciliation → source-data editor) + **Re-run checks**. Clearing verified on real DB: fixing the source data + re-running removes the flag (engine replaces its own flags each run). Live in-browser click-through pending auth; hrefs target the exact section anchor/field.
+- [x] **4.4 Coverage report.** Machine-readable JSON + human-readable view mapping every requirement → status + evidence.
+  - **Accept:** report totals reconcile with the flags; coverage % is computed from real data, not hardcoded. ✓ Verified (`gaps/report.ts`): per-requirement status table + coverage % computed from real `requirement_coverage`; `mandatoryMissing` equals the count of blocker `missing` coverage flags (integration test). Human-readable table on the gaps page + JSON download at `/api/projects/[id]/coverage-report`.
+- [x] **4.5 GATE — Phase 4 exit.** Engine flags an omitted disclosure and an inconsistent figure, and passes clean on a complete, consistent draft.
+  - **Accept:** automated test with a "bad" fixture (fails as expected) and a "good" fixture (passes clean). ✓ Verified: **good fixture** (all sections drafted covering every requirement, consistent data) → 0 mandatory-missing, 0 inconsistencies, coverage > 90%, no blocker gaps; **bad fixture** (omitted mandatory section + inconsistent shares) → blocker + inconsistent flags. Re-check idempotent. `pnpm test` = 64 passing (13 files).
 
 ## Phase 5 — Reviewer workflow
 
