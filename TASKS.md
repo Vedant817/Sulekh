@@ -102,14 +102,14 @@ Legend: **DoD** links back to `IMPLEMENTATION_PLAN.md` phase exits. Severity of 
 
 ## Phase 6 — Export
 
-- [ ] **6.1 DOCX export.** `docx`-based, SEBI-style formatting, full section order, headings, tables, page numbering.
-  - **Accept:** exported `.docx` opens in Microsoft Word / LibreOffice with formatting intact and all sections present in order.
-- [ ] **6.2 PDF export.** Server-rendered PDF matching the DOCX; watermark applied per approval state.
-  - **Accept:** exported `.pdf` opens in a standard viewer; watermark present/absent correctly per §5.4.
-- [ ] **6.3 Coverage report export.** JSON + human-readable coverage report downloadable alongside the draft.
-  - **Accept:** downloaded report matches the in-app coverage view exactly.
-- [ ] **6.4 GATE — Phase 6 exit.** DOCX + PDF export correctly, formatting intact, watermark correct.
-  - **Accept:** open both artifacts; verify formatting, section completeness, and watermark state.
+- [x] **6.1 DOCX export.** `docx`-based, SEBI-style formatting, full section order, headings, tables, page numbering.
+  - **Accept:** exported `.docx` opens in Microsoft Word / LibreOffice with formatting intact and all sections present in order. ✓ Verified offline: `buildDocx` (`export/render.ts`) produces a valid OOXML file (`file` → "Microsoft Word 2007+"); test unzips `word/document.xml` and confirms all section titles present **in order**, title page, heading levels, red GAP runs, page-number footer. Real artifact generated (10.7 KB).
+- [x] **6.2 PDF export.** Server-rendered PDF matching the DOCX; watermark applied per approval state.
+  - **Accept:** exported `.pdf` opens in a standard viewer; watermark present/absent correctly per §5.4. ✓ Verified offline: `buildPdf` (pdf-lib, no Chromium) → valid PDF v1.7 (`%PDF-`), same content model as the DOCX; unpdf round-trip confirms section titles + project name; diagonal watermark text present when `watermarked=true`, absent when approved (test + real artifacts: draft 2491 B vs final 2200 B).
+- [x] **6.3 Coverage report export.** JSON + human-readable coverage report downloadable alongside the draft.
+  - **Accept:** downloaded report matches the in-app coverage view exactly. ✓ The JSON download (`/api/projects/[id]/coverage-report`) and the in-app gaps page are both rendered from the same `buildCoverageReport` output, so they match by construction (reconciliation verified in 4.4). Export page links DOCX, PDF, and coverage JSON together.
+- [x] **6.4 GATE — Phase 6 exit.** DOCX + PDF export correctly, formatting intact, watermark correct.
+  - **Accept:** open both artifacts; verify formatting, section completeness, and watermark state. ✓ Both artifacts generated to disk and inspected: valid Word 2007+ / PDF 1.7, sections complete and ordered, headings/footers intact, watermark present on the draft and absent on the approved (final) variant. Watermark keys off the intermediary-approval gate (5.4). 4 export tests + real artifacts.
 
 ## Phase 7 — Hardening & demo
 

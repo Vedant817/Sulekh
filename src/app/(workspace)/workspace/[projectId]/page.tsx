@@ -14,6 +14,7 @@ const STAGES = [
   { key: "generate", label: "Generate draft", href: (id: string) => `/workspace/${id}/generate` },
   { key: "gaps", label: "Gaps & coverage", href: (id: string) => `/workspace/${id}/gaps` },
   { key: "review", label: "Intermediary review", href: (id: string) => `/workspace/${id}/review` },
+  { key: "export", label: "Export", href: (id: string) => `/workspace/${id}/export` },
 ];
 
 export default async function ProjectPage({
