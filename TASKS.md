@@ -114,13 +114,13 @@ Legend: **DoD** links back to `IMPLEMENTATION_PLAN.md` phase exits. Severity of 
 ## Phase 7 — Hardening & demo
 
 - [ ] **7.1 E2E happy path.** Playwright: sign up → intake → upload → confirm → generate → gaps → review → approve → export. Green in CI.
-  - **Accept:** the full E2E spec passes in CI against a real (test) Supabase + real Claude calls.
+  - **Accept:** the full E2E spec passes in CI against a real (test) Supabase + real Claude calls. _(Written: `playwright.config.ts` + `tests/e2e/happy-path.spec.ts` (protected-route redirect, sign-in, sample-project walk-through to generate→gaps→export), gated on `E2E_BASE_URL` + seeded promoter creds so CI stays green without live services. Running it green needs a deployed instance backed by real Supabase + Claude — deferred.)_
 - [ ] **7.2 Edge & error states.** Empty/loading/failure UI everywhere; LLM/API errors retried then surfaced (never swallowed); large-file and malformed-input handling.
   - **Accept:** killing the Anthropic key mid-run surfaces a clear retry/error UI, not a white screen; malformed upload handled gracefully.
 - [ ] **7.3 Performance pass.** Generation runs within an acceptable demo window; long jobs show progress and don't time out the request.
   - **Accept:** full-draft generation for the sample issuer completes and streams progress without an HTTP timeout.
 - [ ] **7.4 Demo seed & script.** Sample issuer seeded; a written demo script hits time-to-draft, coverage %, gaps caught, and live grounding.
-  - **Accept:** a cold run of the demo script on the deployed URL works start to finish with no manual DB fixups.
+  - **Accept:** a cold run of the demo script on the deployed URL works start to finish with no manual DB fixups. _(Built + verified offline: `pnpm seed:sample-issuer` seeds ONE clearly-labelled synthetic issuer — "DemoTech Manufacturing Limited (SAMPLE)" — with 21 intake answers, 6 confirmed entities, capital structure, and offer, all **internally consistent** (gap engine reports 0 inconsistencies); idempotent. `DEMO.md` written (8-min script hitting time-to-draft, coverage %, gaps, grounding). Deployed cold-run deferred to Vercel + live services.)_
 - [ ] **7.5 GATE — Project Definition of Done.** Full journey runs end to end on the deployed URL against live services; every task above checked with acceptance verified; no anti-patterns from `IMPLEMENTATION_PLAN.md` §11 present.
   - **Accept:** a fresh reviewer, following `START.md`, reaches a completed exported draft on the deployed URL without touching code or the database directly.
 
