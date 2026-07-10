@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { listDocuments } from "@/server/extraction/documents";
+import { listExtractedEntities } from "@/server/extraction/entities";
 import { getProject } from "@/server/projects";
 
 import { DocumentList } from "./document-list";
+import { ExtractedEntities } from "./extracted-entities";
 import { UploadForm } from "./upload-form";
 
 export default async function DocumentsPage({
@@ -16,7 +18,10 @@ export default async function DocumentsPage({
   const project = await getProject(projectId);
   if (!project) notFound();
 
-  const documents = await listDocuments(projectId);
+  const [documents, entities] = await Promise.all([
+    listDocuments(projectId),
+    listExtractedEntities(projectId),
+  ]);
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
@@ -31,7 +36,8 @@ export default async function DocumentsPage({
         </p>
       </div>
       <UploadForm projectId={projectId} />
-      <DocumentList documents={documents} />
+      <DocumentList projectId={projectId} documents={documents} />
+      <ExtractedEntities projectId={projectId} entities={entities} />
     </div>
   );
 }
