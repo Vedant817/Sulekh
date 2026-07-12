@@ -27,6 +27,14 @@ describe("parseServerEnv", () => {
     expect(env.GST_API_KEY).toBe("");
   });
 
+  it("boots clean without an embeddings key — it's only required when the embedding pipeline runs", () => {
+    const { EMBEDDINGS_API_KEY, ...withoutEmbeddings } = validRaw;
+    void EMBEDDINGS_API_KEY;
+    const env = parseServerEnv(withoutEmbeddings);
+    expect(env.EMBEDDINGS_API_KEY).toBe("");
+    expect(env.GROQ_API_KEY).toBe("gsk-xxx");
+  });
+
   it("coerces EMBEDDINGS_DIM from string to number", () => {
     const env = parseServerEnv({ ...validRaw, EMBEDDINGS_DIM: "1536" });
     expect(env.EMBEDDINGS_DIM).toBe(1536);
@@ -48,16 +56,16 @@ describe("parseServerEnv", () => {
   });
 
   it("names every offending var, not just the first", () => {
-    const { GROQ_API_KEY, EMBEDDINGS_API_KEY, ...missing } = validRaw;
+    const { GROQ_API_KEY, SUPABASE_SERVICE_ROLE_KEY, ...missing } = validRaw;
     void GROQ_API_KEY;
-    void EMBEDDINGS_API_KEY;
+    void SUPABASE_SERVICE_ROLE_KEY;
     try {
       parseServerEnv(missing);
       expect.unreachable("should have thrown");
     } catch (err) {
       const e = err as EnvValidationError;
       expect(e.message).toContain("GROQ_API_KEY");
-      expect(e.message).toContain("EMBEDDINGS_API_KEY");
+      expect(e.message).toContain("SUPABASE_SERVICE_ROLE_KEY");
     }
   });
 

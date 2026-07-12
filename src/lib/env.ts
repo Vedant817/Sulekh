@@ -29,10 +29,13 @@ export const serverEnvSchema = z.object({
   MODEL_DRAFTING: nonEmpty("MODEL_DRAFTING"),
   MODEL_REASONING: nonEmpty("MODEL_REASONING"),
 
-  // Embeddings
+  // Embeddings — only required when the embedding pipeline is actually invoked
+  // (see src/server/retrieval/embeddings.ts, which validates its own key
+  // strictly at call time). Not required for the app to boot or for Groq/DB
+  // health, so a missing Gemini key doesn't block unrelated functionality.
   EMBEDDINGS_PROVIDER: nonEmpty("EMBEDDINGS_PROVIDER").default("gemini"),
-  EMBEDDINGS_API_KEY: nonEmpty("EMBEDDINGS_API_KEY"),
-  EMBEDDINGS_MODEL: nonEmpty("EMBEDDINGS_MODEL"),
+  EMBEDDINGS_API_KEY: z.string().trim().optional().default(""),
+  EMBEDDINGS_MODEL: nonEmpty("EMBEDDINGS_MODEL").default("text-embedding-004"),
   EMBEDDINGS_DIM: z.coerce
     .number({ invalid_type_error: "EMBEDDINGS_DIM must be a number" })
     .int("EMBEDDINGS_DIM must be an integer")

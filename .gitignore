@@ -44,3 +44,9 @@ next-env.d.ts
 # Corpus source PDFs (large; fetched via `pnpm corpus:fetch` from corpus/sources.json)
 corpus/*.pdf
 corpus/*.txt
+
+# Internal planning docs (local only)
+IMPLEMENTATION_PLAN.md
+START.md
+TASKS.md
+SUBMISSION.md
