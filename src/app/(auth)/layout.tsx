@@ -7,7 +7,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
           SEBI TechSprint · PS4
         </span>
-        <span className="text-2xl font-semibold tracking-tight">DRHP Studio</span>
+        <span className="text-2xl font-semibold tracking-tight">Sulekh</span>
       </Link>
       {children}
     </div>

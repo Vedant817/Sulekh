@@ -1,6 +1,6 @@
 # CLAUDE.md — Rules for Claude Code
 
-You are building **DRHP Studio**, a production application for SEBI TechSprint Problem Statement 4. Read `IMPLEMENTATION_PLAN.md` (architecture + non-negotiables), then `TASKS.md` (the backlog you execute), then this file.
+You are building **Sulekh**, a production application for SEBI TechSprint Problem Statement 4. Read `IMPLEMENTATION_PLAN.md` (architecture + non-negotiables), then `TASKS.md` (the backlog you execute), then this file.
 
 ## Prime directive
 Ship a **fully functional, production-grade** application — not an MVP, not a demo shell. Every path works against real services on real input. If you cannot make something genuinely work, **stop and report what's missing** — do not fake it.

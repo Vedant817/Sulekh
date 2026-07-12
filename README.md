@@ -1,8 +1,8 @@
-# DRHP Studio
+# Sulekh
 
 A production web application for **SEBI Securities Market TechSprint (GFF 2026), Problem Statement 4 — _Simplifying IPO Offer Document Preparation for SMEs._**
 
-DRHP Studio captures an SME issuer's business, financial, and legal particulars through a guided intake and generates a **substantially complete, disclosure-ready draft DRHP** aligned to SEBI's SME IPO framework — with automated gap/consistency flagging and a **mandatory authorised-intermediary review gate** before any export. It is the _author_ (produces the clean first draft), complementing the _checkers_ that BSE/SEBI already provide.
+Sulekh captures an SME issuer's business, financial, and legal particulars through a guided intake and generates a **substantially complete, disclosure-ready draft DRHP** aligned to SEBI's SME IPO framework — with automated gap/consistency flagging and a **mandatory authorised-intermediary review gate** before any export. It is the _author_ (produces the clean first draft), complementing the _checkers_ that BSE/SEBI already provide.
 
 > This tool produces a **draft** for authorised-intermediary review. It never submits anything to any regulator or exchange.
 

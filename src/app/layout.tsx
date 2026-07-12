@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DRHP Studio",
+  title: "Sulekh",
   description:
     "Author disclosure-ready draft DRHPs for SME IPOs — grounded generation, gap flagging, and a mandatory authorised-intermediary review gate.",
 };

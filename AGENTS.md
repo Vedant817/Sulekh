@@ -3,7 +3,7 @@
 Conventions for any coding agent (Codex and others) working in this repo. Companion to `CLAUDE.md`; the two carry the same rules in each agent's expected format. Read `IMPLEMENTATION_PLAN.md` → `TASKS.md` → this file before acting.
 
 ## Project
-**DRHP Studio** — a production web app for SEBI TechSprint Problem Statement 4: an SME promoter captures business, financial, and legal particulars and the app generates a disclosure-ready **draft** DRHP aligned to SEBI's SME IPO framework, with automated gap/consistency flagging and a mandatory authorised-intermediary review gate before export.
+**Sulekh** — a production web app for SEBI TechSprint Problem Statement 4: an SME promoter captures business, financial, and legal particulars and the app generates a disclosure-ready **draft** DRHP aligned to SEBI's SME IPO framework, with automated gap/consistency flagging and a mandatory authorised-intermediary review gate before export.
 
 ## Prime directive
 Deliver a **fully functional, production-grade** system — real DB, real auth, real LLM calls, real document parsing, real RAG, real DOCX/PDF export. No MVP shortcuts, no stubs in production paths, no fabricated data. If something can't genuinely work, **stop and report the blocker**; do not fake completion.

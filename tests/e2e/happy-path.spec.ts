@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 /**
  * End-to-end happy path (task 7.1): sign in → open project → intake → documents
  * → generate → gaps → review → export. Exercises the real deployed app against
- * live Supabase + Claude. Skipped unless E2E_BASE_URL + a seeded promoter login
+ * live Supabase + Groq. Skipped unless E2E_BASE_URL + a seeded promoter login
  * are configured, so CI without live services stays green.
  *
  * Run: E2E_BASE_URL=https://<deploy> E2E_PROMOTER_EMAIL=… E2E_PROMOTER_PASSWORD=… pnpm test:e2e
@@ -12,7 +12,7 @@ const EMAIL = process.env.E2E_PROMOTER_EMAIL;
 const PASSWORD = process.env.E2E_PROMOTER_PASSWORD;
 const configured = Boolean(process.env.E2E_BASE_URL && EMAIL && PASSWORD);
 
-test.describe("DRHP Studio happy path", () => {
+test.describe("Sulekh happy path", () => {
   test.skip(!configured, "Set E2E_BASE_URL + E2E_PROMOTER_EMAIL/PASSWORD to run against a live deploy.");
 
   test("protected route redirects an unauthenticated user to login", async ({ page }) => {

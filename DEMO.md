@@ -1,4 +1,4 @@
-# DRHP Studio — Demo Script
+# Sulekh — Demo Script
 
 A cold, end-to-end run for the jury. Target: **intake → confirmed data → generated draft → gaps → intermediary review → watermarked/final export**, showing grounding and the human-in-the-loop gates.
 
@@ -24,4 +24,4 @@ A cold, end-to-end run for the jury. Target: **intake → confirmed data → gen
 7. **Export** — before full approval, download the **watermarked** DOCX/PDF ("DRAFT — FOR AUTHORISED INTERMEDIARY REVIEW"). After all mandatory sections are approved, the gate unlocks and the export is **un-watermarked (final)**.
 
 ## The one-liner
-Manual DRHP drafting takes months of heavy intermediary involvement; DRHP Studio reaches a reviewable, grounded draft in one session — with the intermediary preserved as the reviewer, not replaced.
+Manual DRHP drafting takes months of heavy intermediary involvement; Sulekh reaches a reviewable, grounded draft in one session — with the intermediary preserved as the reviewer, not replaced.

@@ -65,7 +65,7 @@ const principles = [
   {
     title: "It authors, it never submits",
     description:
-      "DRHP Studio produces a draft for review. It has no path to file with SEBI or an exchange — that decision and action stay entirely with your team.",
+      "Sulekh produces a draft for review. It has no path to file with SEBI or an exchange — that decision and action stay entirely with your team.",
   },
 ];
 
@@ -85,7 +85,7 @@ export default function Home() {
             Preparing a Draft Red Herring Prospectus (DRHP) for a BSE SME / NSE
             Emerge listing is slow, manual, and expert-dependent — merchant
             bankers hand-draft each section, then hand-check it against SEBI&rsquo;s
-            ICDR requirements. <strong className="text-foreground">DRHP Studio</strong> is
+            ICDR requirements. <strong className="text-foreground">Sulekh</strong> is
             the authoring tool that does that first pass for you: a guided
             intake, real document extraction, a grounded first draft, automated
             gap-checking, and a mandatory intermediary sign-off — before anything

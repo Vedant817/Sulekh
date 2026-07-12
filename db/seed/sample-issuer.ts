@@ -11,7 +11,7 @@ import { createSqlClient } from "../client";
  */
 const OWNER = "5a11f11e-0000-4000-8000-000000000001";
 const PROJECT = "5a11f11e-0000-4000-8000-000000000002";
-const OWNER_EMAIL = "demo-promoter@drhpstudio.sample";
+const OWNER_EMAIL = "demo-promoter@sulekh.sample";
 
 const INTAKE: Record<string, unknown> = {
   legal_name: "DemoTech Manufacturing Limited (SAMPLE)",

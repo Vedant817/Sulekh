@@ -21,7 +21,7 @@ export default async function WorkspaceLayout({
     <div className="flex min-h-screen flex-col">
       <header className="flex items-center justify-between border-b px-6 py-3">
         <Link href="/workspace" className="font-semibold tracking-tight">
-          DRHP Studio
+          Sulekh
         </Link>
         <div className="flex items-center gap-4">
           <div className="flex flex-col items-end leading-tight">
