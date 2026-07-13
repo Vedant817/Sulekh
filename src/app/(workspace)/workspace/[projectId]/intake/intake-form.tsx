@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, CheckCircle2, CircleAlert } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import {
 } from "@/server/intake/questionnaire";
 
 import { saveAnswerAction } from "./actions";
+import { INTAKE_PROGRESS_EVENT } from "./setup-progress";
 
 type FieldState = "idle" | "saving" | "saved" | "error";
 
@@ -33,6 +34,10 @@ export function IntakeForm({
   const visible = useMemo(() => visibleQuestions(answers), [answers]);
   const progress = useMemo(() => intakeProgress(answers), [answers]);
   const visibleIds = useMemo(() => new Set(visible.map((q) => q.id)), [visible]);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent(INTAKE_PROGRESS_EVENT, { detail: progress }));
+  }, [progress]);
 
   function jumpToNextRequired(): void {
     const next = progress.missingRequired[0];
