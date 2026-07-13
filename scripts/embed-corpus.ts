@@ -1,6 +1,7 @@
 import { createSqlClient } from "../db/client";
 import {
   getEmbeddingProvider,
+  resetEmbeddingProvider,
   toPgVector,
 } from "../src/server/retrieval/embeddings";
 
@@ -14,9 +15,11 @@ async function main() {
   const sql = createSqlClient();
   try {
     const [{ count: pending }] = await sql<{ count: number }[]>`
-      select count(*)::int as count from public.corpus_chunks where embedding is null`;
+      select count(*)::int as count
+      from public.corpus_chunks
+      where embedding is null or embedding_signature is distinct from ${provider.signature}`;
     if (pending === 0) {
-      console.log("✔ All corpus chunks already embedded — nothing to do.");
+      console.log(`✔ All corpus chunks already embedded with ${provider.signature} — nothing to do.`);
       return;
     }
     console.log(
@@ -28,7 +31,7 @@ async function main() {
     for (;;) {
       const rows = await sql<{ id: string; content: string }[]>`
         select id, content from public.corpus_chunks
-        where embedding is null
+        where embedding is null or embedding_signature is distinct from ${provider.signature}
         order by document_id, chunk_index
         limit ${provider.batchSize}`;
       if (rows.length === 0) break;
@@ -38,13 +41,21 @@ async function main() {
         "RETRIEVAL_DOCUMENT",
       );
 
-      await sql.begin(async (tx) => {
-        for (let i = 0; i < rows.length; i++) {
-          await tx`update public.corpus_chunks
-                   set embedding = ${toPgVector(vectors[i])}::vector
-                   where id = ${rows[i].id}`;
-        }
-      });
+      const updates = rows.map((row, index) => ({
+        id: row.id,
+        embedding: toPgVector(vectors[index]),
+      }));
+      // One atomic statement per inference batch. This avoids one cloud DB
+      // round trip per vector while still committing no partial batch.
+      await sql`update public.corpus_chunks c
+                set embedding = batch.embedding::vector,
+                    embedding_provider = ${provider.name},
+                    embedding_model = ${provider.model},
+                    embedding_signature = ${provider.signature},
+                    embedded_at = now()
+                from jsonb_to_recordset(${sql.json(updates)}::jsonb)
+                  as batch(id uuid, embedding text)
+                where c.id = batch.id`;
 
       done += rows.length;
       process.stdout.write(`\r  embedded ${done}/${pending}`);
@@ -52,6 +63,8 @@ async function main() {
     process.stdout.write("\n");
     console.log("✔ Embeddings complete.");
   } finally {
+    await provider.dispose?.();
+    resetEmbeddingProvider();
     await sql.end({ timeout: 5 });
   }
 }

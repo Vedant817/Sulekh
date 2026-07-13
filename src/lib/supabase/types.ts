@@ -62,7 +62,11 @@ export type Database = {
           content: string
           created_at: string
           document_id: string
+          embedded_at: string | null
           embedding: string | null
+          embedding_model: string | null
+          embedding_provider: string | null
+          embedding_signature: string | null
           id: string
           section_tag: string | null
           source_ref: string | null
@@ -73,7 +77,11 @@ export type Database = {
           content: string
           created_at?: string
           document_id: string
+          embedded_at?: string | null
           embedding?: string | null
+          embedding_model?: string | null
+          embedding_provider?: string | null
+          embedding_signature?: string | null
           id?: string
           section_tag?: string | null
           source_ref?: string | null
@@ -84,7 +92,11 @@ export type Database = {
           content?: string
           created_at?: string
           document_id?: string
+          embedded_at?: string | null
           embedding?: string | null
+          embedding_model?: string | null
+          embedding_provider?: string | null
+          embedding_signature?: string | null
           id?: string
           section_tag?: string | null
           source_ref?: string | null
@@ -1103,4 +1115,3 @@ export const Constants = {
     },
   },
 } as const
-
