@@ -40,19 +40,23 @@ function toCheck(
 async function checkDatabaseAndCorpus(): Promise<{ database: Check; corpus: Check }> {
   const sql = getSql();
   const rows = await withTimeout(
-    sql<{ documents: number; chunks: number }[]>`
+    sql<{ documents: number; chunks: number; embedded: number }[]>`
       select
         (select count(*)::int from public.corpus_documents) as documents,
-        (select count(*)::int from public.corpus_chunks)    as chunks`,
+        (select count(*)::int from public.corpus_chunks)    as chunks,
+        (select count(*)::int from public.corpus_chunks where embedding is not null) as embedded`,
     "database",
   );
-  const { documents, chunks } = rows[0];
+  const { documents, chunks, embedded } = rows[0];
+  const corpusReady = documents > 0 && chunks > 0 && embedded === chunks;
   return {
     database: { status: "ok", detail: "connected" },
     corpus: {
-      status: "ok",
-      detail: `${chunks} chunk(s) across ${documents} document(s)`,
-      meta: { documents, chunks },
+      status: corpusReady ? "ok" : "error",
+      detail: corpusReady
+        ? `${chunks} embedded chunk(s) across ${documents} document(s)`
+        : `${embedded}/${chunks} chunk(s) embedded across ${documents} document(s)`,
+      meta: { documents, chunks, embedded },
     },
   };
 }
