@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
 import { generationStatusAction } from "./actions";
+import { getGenerationReadiness } from "@/server/generation/readiness";
 import { getProject } from "@/server/projects";
 
 import { GeneratePanel } from "./generate-panel";
@@ -16,7 +17,10 @@ export default async function GeneratePage({
   const [project, user] = await Promise.all([getProject(projectId), getCurrentUser()]);
   if (!project) notFound();
 
-  const initial = await generationStatusAction(projectId);
+  const [initial, readiness] = await Promise.all([
+    generationStatusAction(projectId),
+    getGenerationReadiness(projectId),
+  ]);
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
@@ -33,6 +37,7 @@ export default async function GeneratePage({
       <GeneratePanel
         projectId={projectId}
         initial={initial}
+        readiness={readiness}
         role={user?.profile?.role ?? "promoter"}
       />
     </div>

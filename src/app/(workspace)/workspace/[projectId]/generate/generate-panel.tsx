@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowRight, CheckCircle2, ListChecks, MessagesSquare } from "lucide-react";
+import { ArrowRight, CheckCircle2, ListChecks, MessagesSquare, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
+import type { GenerationReadiness } from "@/server/generation/readiness-rules";
 
 import {
   generationStatusAction,
@@ -17,10 +18,12 @@ const ACTIVE = new Set(["queued", "running"]);
 export function GeneratePanel({
   projectId,
   initial,
+  readiness,
   role,
 }: {
   projectId: string;
   initial: GenerationStatus;
+  readiness: GenerationReadiness;
   role: string;
 }) {
   const [status, setStatus] = useState<GenerationStatus>(initial);
@@ -64,6 +67,34 @@ export function GeneratePanel({
 
   return (
     <div className="flex flex-col gap-6">
+      {!readiness.ready ? (
+        <section className="flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+          <div className="flex items-start gap-3">
+            <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-700" aria-hidden="true" />
+            <div>
+              <h2 className="font-semibold">Finish issuer setup before generating</h2>
+              <p className="mt-1 text-sm text-amber-900/80">
+                Drafting is paused so unreviewed source data cannot enter the DRHP.
+              </p>
+            </div>
+          </div>
+          <ol className="grid gap-1 text-sm">
+            {readiness.issues.map((issue) => (
+              <li key={`${issue.focus}-${issue.message}`} className="flex items-start gap-2">
+                <span aria-hidden="true">•</span>
+                <span>{issue.message}</span>
+              </li>
+            ))}
+          </ol>
+          <Link
+            href={`/workspace/${projectId}/intake#${readiness.issues[0]?.focus ?? "details"}`}
+            className={buttonVariants({ size: "lg" })}
+          >
+            Continue issuer setup <ArrowRight aria-hidden="true" />
+          </Link>
+        </section>
+      ) : null}
+
       <div className="flex items-center justify-between gap-3 rounded-xl border p-4">
         <div className="flex flex-col">
           <span className="font-medium">Generate the draft DRHP</span>
@@ -72,7 +103,7 @@ export function GeneratePanel({
             checklist; unknowns are marked as gaps, never invented.
           </span>
         </div>
-        <Button onClick={start} disabled={starting || active}>
+        <Button onClick={start} disabled={!readiness.ready || starting || active}>
           {active
             ? "Generating…"
             : starting

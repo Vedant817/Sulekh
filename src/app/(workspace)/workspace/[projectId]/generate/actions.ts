@@ -2,6 +2,7 @@
 
 import { getCurrentUser } from "@/lib/auth";
 import { startGeneration } from "@/server/generation/run";
+import { getGenerationReadiness } from "@/server/generation/readiness";
 import { getGapCount, getLatestJob, listSections } from "@/server/generation/status";
 import { getProject } from "@/server/projects";
 
@@ -13,6 +14,13 @@ export async function startGenerationAction(projectId: string): Promise<StartRes
   const project = await getProject(projectId);
   if (!project) return { ok: false, error: "Project not found or not accessible." };
   try {
+    const readiness = await getGenerationReadiness(projectId);
+    if (!readiness.ready) {
+      return {
+        ok: false,
+        error: `Issuer setup is incomplete. ${readiness.issues[0]?.message ?? "Finish issuer setup before drafting."}`,
+      };
+    }
     const jobId = await startGeneration(projectId);
     return { ok: true, error: null, jobId };
   } catch (err) {
