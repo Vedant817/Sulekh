@@ -104,6 +104,7 @@ async function completeIntake(page: Page): Promise<void> {
   await page.locator("#face_value").fill("10");
   await page.locator("#pre_issue_shares").fill("5000000");
   await page.locator("#offer_structure").selectOption("fresh_only");
+  await page.locator("#fresh_issue_shares").fill("2000000");
   await page.locator("#fresh_issue_amount").fill("1500");
   await page
     .locator("#objects_of_issue")

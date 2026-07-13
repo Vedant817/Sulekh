@@ -18,6 +18,7 @@ describe("intake branching", () => {
     const shown = ids(a);
     expect(shown).toContain("installed_capacity");
     expect(shown).toContain("plant_locations");
+    expect(shown).toContain("fresh_issue_shares");
     expect(shown).toContain("fresh_issue_amount");
     expect(shown).toContain("objects_of_issue");
     // hidden branches
@@ -32,8 +33,10 @@ describe("intake branching", () => {
     const shown = ids(a);
     expect(shown).toContain("service_lines");
     expect(shown).toContain("ofs_selling_shareholders");
+    expect(shown).toContain("ofs_shares");
     expect(shown).toContain("ofs_amount");
     expect(shown).not.toContain("installed_capacity");
+    expect(shown).not.toContain("fresh_issue_shares");
     expect(shown).not.toContain("fresh_issue_amount");
     expect(shown).not.toContain("objects_of_issue");
   });
@@ -51,6 +54,20 @@ describe("intake validation", () => {
     expect(validateAnswer(q, "3")).toEqual({ ok: true, value: 3 });
     expect(validateAnswer(q, "0").ok).toBe(false);
     expect(validateAnswer(q, "999").ok).toBe(false);
+  });
+
+  it("does not coerce a blank required number to zero", () => {
+    const required = questionById("latest_revenue")!;
+    expect(validateAnswer(required, "")).toEqual({
+      ok: false,
+      error: "Latest FY revenue from operations (₹ in lakhs) is required",
+    });
+  });
+
+  it("allows price-dependent issue amounts to remain unknown", () => {
+    const amount = questionById("fresh_issue_amount")!;
+    expect(amount.required).not.toBe(true);
+    expect(validateAnswer(amount, "")).toEqual({ ok: true, value: null });
   });
 
   it("rejects invalid select values and accepts valid ones", () => {
@@ -85,5 +102,6 @@ describe("intake progress", () => {
     const p = intakeProgress(a);
     expect(p.missingRequired).not.toContain("service_lines");
     expect(p.missingRequired).not.toContain("ofs_amount");
+    expect(p.missingRequired).toContain("fresh_issue_shares");
   });
 });

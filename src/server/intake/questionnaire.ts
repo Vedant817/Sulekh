@@ -104,10 +104,12 @@ export const QUESTIONS: Question[] = [
   { id: "face_value", group: "capital_offer", label: "Face value per equity share (₹)", type: "currency", required: true, min: 1, sectionKeys: ["capital-structure"] },
   { id: "pre_issue_shares", group: "capital_offer", label: "Pre-issue number of equity shares", type: "number", required: true, min: 1, sectionKeys: ["capital-structure"] },
   { id: "offer_structure", group: "capital_offer", label: "Offer structure", type: "select", options: OFFER_STRUCTURES, required: true, sectionKeys: ["offer-information", "capital-structure"] },
-  { id: "fresh_issue_amount", group: "capital_offer", label: "Fresh issue size (₹ in lakhs)", type: "currency", required: true, min: 0, sectionKeys: ["objects-of-issue"], visibleIf: hasFresh },
+  { id: "fresh_issue_shares", group: "capital_offer", label: "Fresh issue size (number of equity shares)", type: "number", required: true, min: 1, sectionKeys: ["offer-information", "capital-structure"], visibleIf: hasFresh },
+  { id: "fresh_issue_amount", group: "capital_offer", label: "Fresh issue amount (₹ in lakhs)", help: "Optional until the issue price or price band is available — do not estimate it.", type: "currency", min: 0, sectionKeys: ["objects-of-issue"], visibleIf: hasFresh },
   { id: "objects_of_issue", group: "capital_offer", label: "Objects of the fresh issue", help: "How proceeds will be used", type: "textarea", required: true, maxLength: 3000, sectionKeys: ["objects-of-issue"], visibleIf: hasFresh },
   { id: "ofs_selling_shareholders", group: "capital_offer", label: "Selling shareholder(s) in the OFS", type: "textarea", required: true, maxLength: 1000, sectionKeys: ["offer-information", "capital-structure"], visibleIf: hasOfs },
-  { id: "ofs_amount", group: "capital_offer", label: "Offer-for-sale size (₹ in lakhs)", type: "currency", required: true, min: 0, sectionKeys: ["offer-information"], visibleIf: hasOfs },
+  { id: "ofs_shares", group: "capital_offer", label: "Offer-for-sale size (number of equity shares)", type: "number", required: true, min: 1, sectionKeys: ["offer-information", "capital-structure"], visibleIf: hasOfs },
+  { id: "ofs_amount", group: "capital_offer", label: "Offer-for-sale amount (₹ in lakhs)", help: "Optional until the issue price or price band is available — do not estimate it.", type: "currency", min: 0, sectionKeys: ["offer-information"], visibleIf: hasOfs },
 
   // Financials
   { id: "latest_revenue", group: "financials", label: "Latest FY revenue from operations (₹ in lakhs)", type: "currency", required: true, min: 0, sectionKeys: ["financial-information", "mda"] },
@@ -197,6 +199,14 @@ export type ValidationResult =
 
 /** Validate a single answer value against its question's rules. */
 export function validateAnswer(q: Question, value: unknown): ValidationResult {
+  if (
+    (q.type === "number" || q.type === "currency") &&
+    (value === null || value === undefined || (typeof value === "string" && value.trim() === ""))
+  ) {
+    return q.required
+      ? { ok: false, error: `${q.label} is required` }
+      : { ok: true, value: null };
+  }
   const parsed = answerSchemaFor(q).safeParse(value);
   if (parsed.success) return { ok: true, value: parsed.data };
   return { ok: false, error: parsed.error.issues[0]?.message ?? `Invalid ${q.label}` };

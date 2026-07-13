@@ -29,6 +29,7 @@ const INTAKE: Record<string, unknown> = {
   face_value: 10,
   pre_issue_shares: 5_000_000,
   offer_structure: "fresh_only",
+  fresh_issue_shares: 2_000_000,
   fresh_issue_amount: 1500, // ₹ in lakhs
   objects_of_issue:
     "Funding capital expenditure for a new production line, upgrading existing machinery, and general corporate purposes.",
