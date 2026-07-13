@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 import { recheckGapsAction } from "./actions";
 
@@ -89,9 +89,12 @@ export function GapsPanel({
                 </div>
                 <span className="text-sm">{g.message}</span>
               </div>
-              <Button size="sm" variant="ghost" render={<Link href={fixHref(projectId, g)} />}>
+              <Link
+                href={fixHref(projectId, g)}
+                className={buttonVariants({ variant: "ghost", size: "sm" })}
+              >
                 Fix →
-              </Button>
+              </Link>
             </li>
           ))}
         </ul>
