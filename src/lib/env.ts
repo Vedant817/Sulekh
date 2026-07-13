@@ -29,13 +29,16 @@ export const serverEnvSchema = z.object({
   MODEL_DRAFTING: nonEmpty("MODEL_DRAFTING"),
   MODEL_REASONING: nonEmpty("MODEL_REASONING"),
 
-  // Embeddings — only required when the embedding pipeline is actually invoked
-  // (see src/server/retrieval/embeddings.ts, which validates its own key
-  // strictly at call time). Not required for the app to boot or for Groq/DB
-  // health, so a missing Gemini key doesn't block unrelated functionality.
-  EMBEDDINGS_PROVIDER: nonEmpty("EMBEDDINGS_PROVIDER").default("gemini"),
+  // Embeddings — local Transformers.js is the quota-free default. The API key
+  // is only required when explicitly selecting the optional Gemini adapter.
+  EMBEDDINGS_PROVIDER: nonEmpty("EMBEDDINGS_PROVIDER").default("local"),
   EMBEDDINGS_API_KEY: z.string().trim().optional().default(""),
-  EMBEDDINGS_MODEL: nonEmpty("EMBEDDINGS_MODEL").default("gemini-embedding-2"),
+  // The provider adapter applies a provider-specific default when this is blank.
+  EMBEDDINGS_MODEL: z.string().trim().optional().default(""),
+  EMBEDDINGS_MODEL_REVISION: nonEmpty("EMBEDDINGS_MODEL_REVISION").default(
+    "4d6cd88e18e51a5e020c2c305726d76ada9c03cf",
+  ),
+  EMBEDDINGS_CACHE_DIR: z.string().trim().optional().default(""),
   EMBEDDINGS_DIM: z.coerce
     .number({ invalid_type_error: "EMBEDDINGS_DIM must be a number" })
     .int("EMBEDDINGS_DIM must be an integer")

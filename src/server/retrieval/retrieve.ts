@@ -85,7 +85,7 @@ async function getSectionTitle(sql: Sql, sectionKey: string): Promise<string> {
 export async function searchCorpus(
   sql: Sql,
   queryVector: number[],
-  opts: { k?: number; sourceTypes?: string[] } = {},
+  opts: { k?: number; sourceTypes?: string[]; embeddingSignature?: string } = {},
 ): Promise<CorpusPassage[]> {
   const k = opts.k ?? 8;
   const vec = toPgVector(queryVector);
@@ -107,6 +107,7 @@ export async function searchCorpus(
     from public.corpus_chunks c
     join public.corpus_documents d on d.id = c.document_id
     where c.embedding is not null
+      ${opts.embeddingSignature ? sql`and c.embedding_signature = ${opts.embeddingSignature}` : sql``}
       ${types ? sql`and d.source_type = any(${types})` : sql``}
     order by c.embedding <=> ${vec}::vector
     limit ${k}`;
@@ -144,13 +145,15 @@ export async function retrieveForSection(
     getSectionRequirements(sql, sectionKey),
   ]);
 
+  const provider = opts.provider ?? getEmbeddingProvider();
   const [{ count: embedded }] = await sql<{ count: number }[]>`
-    select count(*)::int as count from public.corpus_chunks where embedding is not null`;
+    select count(*)::int as count
+    from public.corpus_chunks
+    where embedding is not null and embedding_signature = ${provider.signature}`;
 
   let passages: CorpusPassage[] = [];
   let passagesFromVectorSearch = false;
   if (embedded > 0) {
-    const provider = opts.provider ?? getEmbeddingProvider();
     const [queryVector] = await provider.embed(
       [buildQuery(sectionTitle, requirements)],
       "RETRIEVAL_QUERY",
@@ -158,6 +161,7 @@ export async function retrieveForSection(
     passages = await searchCorpus(sql, queryVector, {
       k: opts.k,
       sourceTypes: opts.sourceTypes,
+      embeddingSignature: provider.signature,
     });
     passagesFromVectorSearch = true;
   }

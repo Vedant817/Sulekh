@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { MAX_UPLOAD_BYTES, validateUpload } from "@/schemas/document";
+import {
+  MAX_UPLOAD_BATCH_BYTES,
+  MAX_UPLOAD_BYTES,
+  suggestDocumentType,
+  validateUpload,
+  validateUploadBatch,
+} from "@/schemas/document";
 
 describe("validateUpload", () => {
   it("accepts a PDF within the size limit", () => {
@@ -39,5 +45,31 @@ describe("validateUpload", () => {
     expect(
       validateUpload({ mimeType: "application/pdf", sizeBytes: 0, fileName: "e.pdf" }).ok,
     ).toBe(false);
+  });
+});
+
+describe("document upload queue", () => {
+  it("suggests visible, editable categories from common filenames", () => {
+    expect(suggestDocumentType("FY24 Audited Financial Statements.pdf")).toBe(
+      "audited_financials",
+    );
+    expect(suggestDocumentType("Promoter Shareholding Cap Table.xlsx")).toBe("cap_table");
+    expect(suggestDocumentType("board-resolution.pdf")).toBe("board_resolution");
+    expect(suggestDocumentType("unrecognised-source.pdf")).toBe("other");
+  });
+
+  it("accepts a bounded multi-file request", () => {
+    expect(validateUploadBatch([{ sizeBytes: 1_000 }, { sizeBytes: 2_000 }])).toEqual({
+      ok: true,
+    });
+  });
+
+  it("rejects a combined request above the batch limit", () => {
+    const result = validateUploadBatch([
+      { sizeBytes: MAX_UPLOAD_BATCH_BYTES },
+      { sizeBytes: 1 },
+    ]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/combined/);
   });
 });

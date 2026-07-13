@@ -9,8 +9,8 @@ const validRaw = {
   GROQ_API_KEY: "gsk-xxx",
   MODEL_DRAFTING: "claude-sonnet-5",
   MODEL_REASONING: "claude-opus-4-8",
-  EMBEDDINGS_API_KEY: "emb-key",
-  EMBEDDINGS_MODEL: "gemini-embedding-2",
+  EMBEDDINGS_MODEL: "Xenova/bge-base-en-v1.5",
+  EMBEDDINGS_MODEL_REVISION: "model-revision",
   APP_URL: "http://localhost:3000",
 } satisfies Record<string, string>;
 
@@ -18,8 +18,9 @@ describe("parseServerEnv", () => {
   it("parses a complete config and applies typed defaults", () => {
     const env = parseServerEnv(validRaw);
     expect(env.GROQ_API_KEY).toBe("gsk-xxx");
-    expect(env.EMBEDDINGS_PROVIDER).toBe("gemini");
+    expect(env.EMBEDDINGS_PROVIDER).toBe("local");
     expect(env.EMBEDDINGS_DIM).toBe(768);
+    expect(env.EMBEDDINGS_CACHE_DIR).toBe("");
     expect(typeof env.EMBEDDINGS_DIM).toBe("number");
     expect(env.NODE_ENV).toBe("development");
     // Optional credentialed providers default to empty (real default adapter).
@@ -27,10 +28,8 @@ describe("parseServerEnv", () => {
     expect(env.GST_API_KEY).toBe("");
   });
 
-  it("boots clean without an embeddings key — it's only required when the embedding pipeline runs", () => {
-    const { EMBEDDINGS_API_KEY, ...withoutEmbeddings } = validRaw;
-    void EMBEDDINGS_API_KEY;
-    const env = parseServerEnv(withoutEmbeddings);
+  it("boots clean without an embeddings key for local inference", () => {
+    const env = parseServerEnv(validRaw);
     expect(env.EMBEDDINGS_API_KEY).toBe("");
     expect(env.GROQ_API_KEY).toBe("gsk-xxx");
   });

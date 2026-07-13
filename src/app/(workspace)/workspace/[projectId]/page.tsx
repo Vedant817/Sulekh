@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
+import { listDocuments } from "@/server/extraction/documents";
+import { listExtractedEntities } from "@/server/extraction/entities";
 import { intakeProgress } from "@/server/intake/questionnaire";
 import { loadAnswers } from "@/server/intake/store";
 import { getProject } from "@/server/projects";
@@ -9,8 +11,7 @@ import { getProject } from "@/server/projects";
 import { AssignForm } from "./assign-form";
 
 const STAGES = [
-  { key: "intake", label: "Guided intake", href: (id: string) => `/workspace/${id}/intake` },
-  { key: "documents", label: "Documents & extraction", href: (id: string) => `/workspace/${id}/documents` },
+  { key: "setup", label: "Issuer setup", href: (id: string) => `/workspace/${id}/intake` },
   { key: "generate", label: "Generate draft", href: (id: string) => `/workspace/${id}/generate` },
   { key: "gaps", label: "Gaps & coverage", href: (id: string) => `/workspace/${id}/gaps` },
   { key: "review", label: "Intermediary review", href: (id: string) => `/workspace/${id}/review` },
@@ -23,11 +24,17 @@ export default async function ProjectPage({
   params: Promise<{ projectId: string }>;
 }) {
   const { projectId } = await params;
-  const [user, project] = await Promise.all([getCurrentUser(), getProject(projectId)]);
+  const [user, project, answers, documents, entities] = await Promise.all([
+    getCurrentUser(),
+    getProject(projectId),
+    loadAnswers(projectId),
+    listDocuments(projectId),
+    listExtractedEntities(projectId),
+  ]);
   if (!project) notFound();
 
-  const answers = await loadAnswers(projectId);
   const progress = intakeProgress(answers);
+  const confirmedEntities = entities.filter((entity) => entity.confirmed_by_promoter).length;
   const isOwner = user?.id === project.owner_id;
 
   return (
@@ -55,10 +62,10 @@ export default async function ProjectPage({
             className="flex items-center justify-between rounded-xl border p-4 transition-colors hover:bg-muted"
           >
             <span className="font-medium">{s.label}</span>
-            {s.key === "intake" ? (
+            {s.key === "setup" ? (
               <span className="text-sm text-muted-foreground">
-                {progress.requiredAnswered}/{progress.requiredVisible} required
-                {progress.complete ? " · complete" : ""}
+                {progress.requiredAnswered}/{progress.requiredVisible} answers · {documents.length} files ·{" "}
+                {confirmedEntities}/{entities.length} reviewed
               </span>
             ) : (
               <span className="text-sm text-muted-foreground">Open →</span>

@@ -1,5 +1,6 @@
-import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import { createIntegrationSql, type Sql } from "./db";
 
 import { generateDraft, type SectionDrafter } from "@/server/generation/orchestrator";
 import { generationOrder } from "@/server/generation/sections";
@@ -40,7 +41,7 @@ describe.skipIf(!TEST_DB)("Generation orchestrator", () => {
   };
 
   beforeAll(async () => {
-    sql = postgres(TEST_DB!, { max: 1, ssl: false, onnotice: () => {} });
+    sql = createIntegrationSql(TEST_DB!);
     await sql.begin(async (tx) => {
       await tx`select set_config('app.purge_audit','on',true)`;
       await tx`delete from auth.users where id = ${OWNER}`;

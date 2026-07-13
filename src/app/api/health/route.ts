@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getGroq, getModels } from "@/lib/groq";
 import { getSql } from "@/lib/db";
+import { getEmbeddingProvider } from "@/server/retrieval/embeddings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,12 +40,14 @@ function toCheck(
 /** DB connectivity + corpus row counts via a direct connection-level probe. */
 async function checkDatabaseAndCorpus(): Promise<{ database: Check; corpus: Check }> {
   const sql = getSql();
+  const provider = getEmbeddingProvider();
   const rows = await withTimeout(
     sql<{ documents: number; chunks: number; embedded: number }[]>`
       select
         (select count(*)::int from public.corpus_documents) as documents,
         (select count(*)::int from public.corpus_chunks)    as chunks,
-        (select count(*)::int from public.corpus_chunks where embedding is not null) as embedded`,
+        (select count(*)::int from public.corpus_chunks
+         where embedding is not null and embedding_signature = ${provider.signature}) as embedded`,
     "database",
   );
   const { documents, chunks, embedded } = rows[0];
@@ -56,7 +59,14 @@ async function checkDatabaseAndCorpus(): Promise<{ database: Check; corpus: Chec
       detail: corpusReady
         ? `${chunks} embedded chunk(s) across ${documents} document(s)`
         : `${embedded}/${chunks} chunk(s) embedded across ${documents} document(s)`,
-      meta: { documents, chunks, embedded },
+      meta: {
+        documents,
+        chunks,
+        embedded,
+        embedding_provider: provider.name,
+        embedding_model: provider.model,
+        embedding_signature: provider.signature,
+      },
     },
   };
 }

@@ -1,10 +1,11 @@
 import { z } from "zod";
+import type { FeatureExtractionPipelineType } from "@huggingface/transformers";
 
 /**
- * Embedding provider abstraction (typed adapter). Default provider is Google
- * Gemini (free tier), configured via env; swappable to other providers without
- * touching callers. Real HTTP calls only — never fabricated vectors. Failures
- * surface loudly (throw), never a silent empty result.
+ * Embedding provider abstraction (typed adapter). The default is local ONNX
+ * inference through Transformers.js, so corpus and query embedding have no API
+ * quota and regulatory text never leaves the host. Gemini remains an optional
+ * adapter. Failures surface loudly; vectors are always dimension/finite checked.
  */
 
 export type EmbeddingTaskType = "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY";
@@ -13,17 +14,44 @@ export interface EmbeddingProvider {
   readonly name: string;
   readonly model: string;
   readonly dim: number;
+  /** Identifies one comparable vector space (provider + model revision/variant). */
+  readonly signature: string;
   /** Max inputs per upstream request. */
   readonly batchSize: number;
   embed(texts: string[], taskType: EmbeddingTaskType): Promise<number[][]>;
+  dispose?(): Promise<void>;
 }
 
+export const LOCAL_EMBEDDING_MODEL = "Xenova/bge-base-en-v1.5";
+export const GEMINI_EMBEDDING_MODEL = "gemini-embedding-2";
+
 const embeddingEnvSchema = z.object({
-  EMBEDDINGS_PROVIDER: z.string().min(1).default("gemini"),
-  EMBEDDINGS_API_KEY: z.string().min(1, "EMBEDDINGS_API_KEY is required for embeddings"),
-  EMBEDDINGS_MODEL: z.string().min(1).default("gemini-embedding-2"),
+  EMBEDDINGS_PROVIDER: z.enum(["local", "gemini"]).default("local"),
+  EMBEDDINGS_API_KEY: z.string().trim().optional().default(""),
+  EMBEDDINGS_MODEL: z.string().trim().optional().default(""),
+  EMBEDDINGS_MODEL_REVISION: z
+    .string()
+    .min(1)
+    .default("4d6cd88e18e51a5e020c2c305726d76ada9c03cf"),
   EMBEDDINGS_DIM: z.coerce.number().int().positive().default(768),
+  EMBEDDINGS_CACHE_DIR: z.string().trim().optional().default(""),
+}).superRefine((value, ctx) => {
+  if (value.EMBEDDINGS_PROVIDER === "gemini" && !value.EMBEDDINGS_API_KEY) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["EMBEDDINGS_API_KEY"],
+      message: "EMBEDDINGS_API_KEY is required when EMBEDDINGS_PROVIDER=gemini",
+    });
+  }
 });
+
+export function resolveEmbeddingModel(
+  provider: "local" | "gemini",
+  configuredModel: string,
+): string {
+  if (configuredModel) return configuredModel;
+  return provider === "gemini" ? GEMINI_EMBEDDING_MODEL : LOCAL_EMBEDDING_MODEL;
+}
 
 function readConfig() {
   const parsed = embeddingEnvSchema.safeParse(process.env);
@@ -31,18 +59,27 @@ function readConfig() {
     const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
     throw new Error(`Embeddings misconfigured:\n  - ${issues.join("\n  - ")}`);
   }
-  return parsed.data;
+  return {
+    ...parsed.data,
+    EMBEDDINGS_MODEL: resolveEmbeddingModel(
+      parsed.data.EMBEDDINGS_PROVIDER,
+      parsed.data.EMBEDDINGS_MODEL,
+    ),
+  };
 }
 
 /** Google Gemini embeddings via the Generative Language REST API. */
 class GeminiEmbeddingProvider implements EmbeddingProvider {
   readonly name = "gemini";
   readonly batchSize = 100;
+  readonly signature: string;
   constructor(
     private readonly apiKey: string,
     readonly model: string,
     readonly dim: number,
-  ) {}
+  ) {
+    this.signature = `${this.name}:${this.model}:${this.dim}`;
+  }
 
   async embed(texts: string[], taskType: EmbeddingTaskType): Promise<number[][]> {
     if (texts.length === 0) return [];
@@ -86,12 +123,104 @@ class GeminiEmbeddingProvider implements EmbeddingProvider {
   }
 }
 
+const BGE_QUERY_PREFIX = "Represent this sentence for searching relevant passages: ";
+
+/** Quota-free, in-process BGE embeddings using pinned ONNX model weights. */
+class LocalTransformersEmbeddingProvider implements EmbeddingProvider {
+  readonly name = "local";
+  readonly batchSize = 16;
+  readonly signature: string;
+  private extractorPromise: Promise<FeatureExtractionPipelineType> | undefined;
+
+  constructor(
+    readonly model: string,
+    private readonly revision: string,
+    readonly dim: number,
+    private readonly configuredCacheDir: string,
+  ) {
+    this.signature = `${this.name}:${this.model}@${this.revision}:q8:${this.dim}`;
+  }
+
+  private getExtractor(): Promise<FeatureExtractionPipelineType> {
+    if (!this.extractorPromise) {
+      this.extractorPromise = (async () => {
+        const { env, pipeline } = await import("@huggingface/transformers");
+        // Vercel's application filesystem is read-only; only /tmp is writable.
+        // Local/long-running hosts retain the project cache between processes.
+        env.cacheDir =
+          this.configuredCacheDir ||
+          (process.env.VERCEL
+            ? "/tmp/sulekh-transformers-cache"
+            : `${process.cwd()}/.cache/transformers`);
+        // Narrow the library's all-pipelines generic: TypeScript otherwise
+        // expands every supported task/model combination into an unusable union.
+        const createFeatureExtractor = pipeline as unknown as (
+          task: "feature-extraction",
+          model: string,
+          options: { revision: string; dtype: "q8"; device: "cpu" },
+        ) => Promise<FeatureExtractionPipelineType>;
+        return createFeatureExtractor("feature-extraction", this.model, {
+          revision: this.revision,
+          dtype: "q8",
+          device: "cpu",
+        });
+      })();
+    }
+    return this.extractorPromise;
+  }
+
+  async embed(texts: string[], taskType: EmbeddingTaskType): Promise<number[][]> {
+    if (texts.length === 0) return [];
+    if (texts.length > this.batchSize) {
+      throw new Error(`Local embedding batch limit is ${this.batchSize}; got ${texts.length}`);
+    }
+    const inputs =
+      taskType === "RETRIEVAL_QUERY"
+        ? texts.map((text) => `${BGE_QUERY_PREFIX}${text}`)
+        : texts;
+
+    const extractor = await this.getExtractor();
+    const tensor = await extractor(inputs, { pooling: "mean", normalize: true });
+    const vectors = tensor.tolist() as unknown;
+    if (!Array.isArray(vectors) || vectors.length !== texts.length) {
+      throw new Error(`Local model returned an invalid batch for ${texts.length} input(s)`);
+    }
+    return vectors.map((raw, index) => {
+      if (!Array.isArray(raw) || raw.length !== this.dim) {
+        throw new Error(
+          `Local embedding ${index} has dim ${Array.isArray(raw) ? raw.length : "invalid"}, expected ${this.dim}`,
+        );
+      }
+      const vector = raw.map(Number);
+      if (!vector.every(Number.isFinite)) {
+        throw new Error(`Local embedding ${index} contains a non-finite value`);
+      }
+      return vector;
+    });
+  }
+
+  async dispose(): Promise<void> {
+    if (!this.extractorPromise) return;
+    const extractor = await this.extractorPromise;
+    await extractor.dispose();
+    this.extractorPromise = undefined;
+  }
+}
+
 let cached: EmbeddingProvider | undefined;
 
 export function getEmbeddingProvider(): EmbeddingProvider {
   if (cached) return cached;
   const cfg = readConfig();
   switch (cfg.EMBEDDINGS_PROVIDER) {
+    case "local":
+      cached = new LocalTransformersEmbeddingProvider(
+        cfg.EMBEDDINGS_MODEL,
+        cfg.EMBEDDINGS_MODEL_REVISION,
+        cfg.EMBEDDINGS_DIM,
+        cfg.EMBEDDINGS_CACHE_DIR,
+      );
+      return cached;
     case "gemini":
       cached = new GeminiEmbeddingProvider(cfg.EMBEDDINGS_API_KEY, cfg.EMBEDDINGS_MODEL, cfg.EMBEDDINGS_DIM);
       return cached;
@@ -100,6 +229,11 @@ export function getEmbeddingProvider(): EmbeddingProvider {
         `Unsupported EMBEDDINGS_PROVIDER "${cfg.EMBEDDINGS_PROVIDER}". Add an adapter in embeddings.ts.`,
       );
   }
+}
+
+/** Test/process utility: do not retain a disposed provider instance. */
+export function resetEmbeddingProvider(): void {
+  cached = undefined;
 }
 
 /** Format a numeric vector as a pgvector literal: [v1,v2,...]. */

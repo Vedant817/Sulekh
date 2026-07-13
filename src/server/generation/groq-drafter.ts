@@ -1,6 +1,9 @@
 import "server-only";
 
+import { z } from "zod";
+
 import { getGroq, getModels } from "@/lib/groq";
+import { isStructuredOutputValidationError } from "@/lib/groq-errors";
 import { buildUserPrompt, GENERATION_SYSTEM } from "@/server/generation/prompt";
 import type { DrafterInput, DrafterOutput, SectionDrafter } from "@/server/generation/orchestrator";
 
@@ -18,6 +21,11 @@ const SUBMIT_SCHEMA = {
   additionalProperties: false,
 };
 
+const submitOutputSchema = z.object({
+  markdown: z.string().min(1),
+  addressed_requirement_codes: z.array(z.string()),
+});
+
 /**
  * Groq-backed section drafter (OpenAI-compatible function calling). Routes to
  * MODEL_DRAFTING / MODEL_REASONING per section, grounds strictly in the provided
@@ -30,23 +38,40 @@ export const groqDrafter: SectionDrafter = async (input: DrafterInput): Promise<
   const models = getModels();
   const modelId = input.modelKind === "reasoning" ? models.reasoning : models.drafting;
 
-  const response = await client.chat.completions.create({
-    model: modelId,
-    max_tokens: 4096,
-    temperature: 0.2,
-    messages: [
-      { role: "system", content: GENERATION_SYSTEM },
-      { role: "user", content: buildUserPrompt(input) },
-    ],
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "drhp_section",
-        strict: true,
-        schema: SUBMIT_SCHEMA,
-      },
-    },
-  });
+  const userPrompt = buildUserPrompt(input);
+  const request = (strict: boolean) =>
+    client.chat.completions.create({
+      model: modelId,
+      max_tokens: 4096,
+      temperature: 0.2,
+      messages: [
+        {
+          role: "system",
+          content: strict
+            ? GENERATION_SYSTEM
+            : `${GENERATION_SYSTEM}\nReturn only one JSON object matching this schema. Do not repeat or describe the schema:\n${JSON.stringify(SUBMIT_SCHEMA)}`,
+        },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: strict
+        ? {
+            type: "json_schema",
+            json_schema: {
+              name: "drhp_section",
+              strict: true,
+              schema: SUBMIT_SCHEMA,
+            },
+          }
+        : { type: "json_object" },
+    });
+
+  let response;
+  try {
+    response = await request(true);
+  } catch (error) {
+    if (!isStructuredOutputValidationError(error)) throw error;
+    response = await request(false);
+  }
 
   const content = response.choices[0]?.message?.content;
   if (!content) {
@@ -55,21 +80,22 @@ export const groqDrafter: SectionDrafter = async (input: DrafterInput): Promise<
     );
   }
 
-  let out: { markdown?: unknown; addressed_requirement_codes?: unknown };
+  let raw: unknown;
   try {
-    out = JSON.parse(content);
+    raw = JSON.parse(content);
   } catch {
     throw new Error(`Generation for ${input.sectionKey} returned invalid JSON arguments.`);
   }
-  if (typeof out.markdown !== "string" || out.markdown.trim().length === 0) {
-    throw new Error(`Generation for ${input.sectionKey} produced empty markdown.`);
+  const parsed = submitOutputSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new Error(
+      `Generation for ${input.sectionKey} did not match the expected schema: ${parsed.error.issues[0]?.message ?? "invalid"}`,
+    );
   }
 
   return {
-    markdown: out.markdown,
-    addressedCodes: Array.isArray(out.addressed_requirement_codes)
-      ? out.addressed_requirement_codes.filter((c): c is string => typeof c === "string")
-      : [],
+    markdown: parsed.data.markdown,
+    addressedCodes: parsed.data.addressed_requirement_codes,
     modelId,
     promptTokens: response.usage?.prompt_tokens ?? 0,
     completionTokens: response.usage?.completion_tokens ?? 0,

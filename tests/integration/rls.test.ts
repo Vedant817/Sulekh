@@ -1,5 +1,6 @@
-import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import { createIntegrationSql, type Sql } from "./db";
 
 /**
  * RLS isolation + audit-immutability, verified against a real Postgres with the
@@ -39,7 +40,7 @@ describe.skipIf(!TEST_DB)("RLS isolation & audit immutability", () => {
   }
 
   beforeAll(async () => {
-    sql = postgres(TEST_DB!, { max: 1, ssl: false, onnotice: () => {} });
+    sql = createIntegrationSql(TEST_DB!);
     // Clean any prior run (cascade removes profiles/projects/events).
     await purgeSeedUsers();
     // Seed users; the on_auth_user_created trigger creates profiles with roles.

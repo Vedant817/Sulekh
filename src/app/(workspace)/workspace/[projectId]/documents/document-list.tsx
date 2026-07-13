@@ -25,10 +25,10 @@ const EXTRACTABLE = new Set([
 ]);
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: "Not parsed",
+  pending: "Waiting for extraction",
   parsing: "Parsing…",
-  parsed: "Parsed",
-  failed: "Parse failed",
+  parsed: "Extraction complete",
+  failed: "Extraction needs attention",
 };
 
 export function DocumentList({
@@ -85,7 +85,9 @@ export function DocumentList({
               <span className="text-xs text-muted-foreground">
                 {DOCUMENT_TYPE_LABELS[d.doc_type as DocumentType] ?? d.doc_type} ·{" "}
                 {d.size_bytes ? `${(d.size_bytes / 1024).toFixed(0)} KB` : "—"} ·{" "}
-                {STATUS_LABEL[d.parse_status] ?? d.parse_status}
+                {d.parse_status === "pending" && !EXTRACTABLE.has(d.doc_type)
+                  ? "Stored"
+                  : (STATUS_LABEL[d.parse_status] ?? d.parse_status)}
               </span>
               {d.parse_status === "failed" && d.parse_error ? (
                 <span className="text-xs text-destructive">{d.parse_error}</span>
@@ -99,7 +101,13 @@ export function DocumentList({
                   disabled={extracting === d.id}
                   onClick={() => extract(d.id)}
                 >
-                  {extracting === d.id ? "Extracting…" : "Extract"}
+                  {extracting === d.id
+                    ? "Extracting…"
+                    : d.parse_status === "failed"
+                      ? "Retry extraction"
+                      : d.parse_status === "parsed"
+                        ? "Re-extract"
+                        : "Run extraction"}
                 </Button>
               ) : null}
               <Button variant="outline" size="sm" disabled={busy === d.id} onClick={() => open(d.id)}>
