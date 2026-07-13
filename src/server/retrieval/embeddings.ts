@@ -31,6 +31,7 @@ const embeddingEnvSchema = z.object({
     .min(1)
     .default("4d6cd88e18e51a5e020c2c305726d76ada9c03cf"),
   EMBEDDINGS_DIM: z.coerce.number().int().positive().default(768),
+  EMBEDDINGS_CACHE_DIR: z.string().trim().optional().default(""),
 }).superRefine((value, ctx) => {
   if (value.EMBEDDINGS_PROVIDER === "gemini" && !value.EMBEDDINGS_API_KEY) {
     ctx.addIssue({
@@ -118,6 +119,7 @@ class LocalTransformersEmbeddingProvider implements EmbeddingProvider {
     readonly model: string,
     private readonly revision: string,
     readonly dim: number,
+    private readonly configuredCacheDir: string,
   ) {
     this.signature = `${this.name}:${this.model}@${this.revision}:q8:${this.dim}`;
   }
@@ -126,7 +128,13 @@ class LocalTransformersEmbeddingProvider implements EmbeddingProvider {
     if (!this.extractorPromise) {
       this.extractorPromise = (async () => {
         const { env, pipeline } = await import("@huggingface/transformers");
-        env.cacheDir = `${process.cwd()}/.cache/transformers`;
+        // Vercel's application filesystem is read-only; only /tmp is writable.
+        // Local/long-running hosts retain the project cache between processes.
+        env.cacheDir =
+          this.configuredCacheDir ||
+          (process.env.VERCEL
+            ? "/tmp/sulekh-transformers-cache"
+            : `${process.cwd()}/.cache/transformers`);
         // Narrow the library's all-pipelines generic: TypeScript otherwise
         // expands every supported task/model combination into an unusable union.
         const createFeatureExtractor = pipeline as unknown as (
@@ -193,6 +201,7 @@ export function getEmbeddingProvider(): EmbeddingProvider {
         cfg.EMBEDDINGS_MODEL,
         cfg.EMBEDDINGS_MODEL_REVISION,
         cfg.EMBEDDINGS_DIM,
+        cfg.EMBEDDINGS_CACHE_DIR,
       );
       return cached;
     case "gemini":

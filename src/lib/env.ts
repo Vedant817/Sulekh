@@ -37,6 +37,7 @@ export const serverEnvSchema = z.object({
   EMBEDDINGS_MODEL_REVISION: nonEmpty("EMBEDDINGS_MODEL_REVISION").default(
     "4d6cd88e18e51a5e020c2c305726d76ada9c03cf",
   ),
+  EMBEDDINGS_CACHE_DIR: z.string().trim().optional().default(""),
   EMBEDDINGS_DIM: z.coerce
     .number({ invalid_type_error: "EMBEDDINGS_DIM must be a number" })
     .int("EMBEDDINGS_DIM must be an integer")

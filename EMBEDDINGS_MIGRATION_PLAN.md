@@ -51,9 +51,12 @@ Task 1.2 closes only when all of the following pass against live services:
 - typecheck, lint, unit/integration tests, production build, and the full
   promoter-to-intermediary export journey pass.
 
-The first run needs network access to download the pinned model weights. Later
-runs use `.cache/transformers`; production images should pre-warm or persist
-that cache to avoid a cold-download dependency.
+The first run needs network access to download the pinned model weights. Local
+runs use `.cache/transformers`; Vercel uses its writable
+`/tmp/sulekh-transformers-cache` scratch space because the deployed application
+filesystem is read-only. Other production hosts can set
+`EMBEDDINGS_CACHE_DIR` to a persistent writable path to avoid a cold-download
+dependency.
 
 ## Verification result — 2026-07-13
 

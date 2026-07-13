@@ -20,6 +20,7 @@ describe("parseServerEnv", () => {
     expect(env.GROQ_API_KEY).toBe("gsk-xxx");
     expect(env.EMBEDDINGS_PROVIDER).toBe("local");
     expect(env.EMBEDDINGS_DIM).toBe(768);
+    expect(env.EMBEDDINGS_CACHE_DIR).toBe("");
     expect(typeof env.EMBEDDINGS_DIM).toBe("number");
     expect(env.NODE_ENV).toBe("development");
     // Optional credentialed providers default to empty (real default adapter).
