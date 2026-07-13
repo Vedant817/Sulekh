@@ -1,7 +1,7 @@
 import { unzipSync, strFromU8 } from "fflate";
 import { describe, expect, it } from "vitest";
 
-import { buildDocx, buildPdf, type ExportInput } from "@/server/export/render";
+import { buildDocx, buildPdf, WATERMARK_TEXT, type ExportInput } from "@/server/export/render";
 
 const base: ExportInput = {
   projectName: "Acme Manufacturing Ltd",
@@ -62,9 +62,27 @@ describe("PDF export", () => {
 
   it("stamps the watermark only when not approved", async () => {
     const watermarked = await pdfText(await buildPdf({ ...base, watermarked: true }));
-    expect(watermarked).toMatch(/DRAFT/);
+    expect(watermarked).toContain(WATERMARK_TEXT);
 
     const clean = await pdfText(await buildPdf({ ...base, watermarked: false }));
-    expect(clean).not.toContain("NOT FOR ISSUE");
+    expect(clean).not.toContain(WATERMARK_TEXT);
+  });
+
+  it("renders common Indian financial and model punctuation safely", async () => {
+    const text = await pdfText(
+      await buildPdf({
+        ...base,
+        sections: [
+          {
+            title: "Financial Information",
+            ordinal: 1,
+            markdown: "Revenue was ₹4,200 lakhs for the pre‑issue period ending FY 2025.",
+          },
+        ],
+      }),
+    );
+    expect(text).toContain("INR 4,200");
+    expect(text).toContain("pre-issue");
+    expect(text).toContain("FY 2025");
   });
 });

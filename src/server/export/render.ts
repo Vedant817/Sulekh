@@ -31,6 +31,13 @@ export type ExportInput = {
 
 type Line = { text: string; kind: "h1" | "h2" | "h3" | "gap" | "body" };
 
+function pdfSafeText(text: string): string {
+  return text
+    .replace(/\u2011/g, "-")
+    .replace(/\u202f/g, " ")
+    .replace(/₹/g, "INR ");
+}
+
 /** Parse a section's markdown into typed lines (headings / gap / body). */
 function toLines(markdown: string): Line[] {
   return markdown
@@ -137,10 +144,10 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
 
   const applyWatermark = (p: ReturnType<typeof pdf.addPage>) => {
     if (!input.watermarked) return;
-    p.drawText("DRAFT — NOT FOR ISSUE", {
-      x: 70,
-      y: 360,
-      size: 40,
+    p.drawText(WATERMARK_TEXT, {
+      x: 50,
+      y: 300,
+      size: 18,
       font: bold,
       color: rgb(0.85, 0.1, 0.1),
       rotate: degrees(45),
@@ -156,7 +163,7 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
   };
 
   const wrap = (text: string, f: typeof font, size: number): string[] => {
-    const words = text.split(/\s+/);
+    const words = pdfSafeText(text).split(/\s+/);
     const lines: string[] = [];
     let cur = "";
     for (const w of words) {
