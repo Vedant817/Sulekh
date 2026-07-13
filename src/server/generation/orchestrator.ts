@@ -128,24 +128,41 @@ export async function generateDraft(
   sql: Sql,
   projectId: string,
   drafter: SectionDrafter,
-  opts: { jobId?: string } = {},
+  opts: { jobId?: string; resumeCompletedSections?: number } = {},
 ): Promise<GenerationResult> {
   const catalog = await loadCatalog(sql);
   if (catalog.length === 0) throw new Error("Section catalogue is empty — run seed:checklist.");
   const order = generationOrder(catalog.map((c) => ({ sectionKey: c.sectionKey, ordinal: c.ordinal })));
   const meta = new Map(catalog.map((c) => [c.sectionKey, c]));
+  const requestedResumeCount = Math.min(
+    Math.max(opts.resumeCompletedSections ?? 0, 0),
+    order.length,
+  );
+  const existingRows = requestedResumeCount > 0
+    ? await sql<{ section_key: string }[]>`
+        select section_key from public.drhp_sections
+        where project_id = ${projectId} and draft_markdown is not null and length(trim(draft_markdown)) > 0`
+    : [];
+  const existing = new Set(existingRows.map((row) => row.section_key));
+  const completedBeforeStart = order
+    .slice(0, requestedResumeCount)
+    .every((sectionKey) => existing.has(sectionKey))
+    ? requestedResumeCount
+    : 0;
+  const pendingOrder = order.slice(completedBeforeStart);
+  const initialProgress = order.length === 0 ? 0 : Math.round((completedBeforeStart / order.length) * 100);
 
   let jobId: string;
   if (opts.jobId) {
     jobId = opts.jobId;
     await sql`update public.generation_jobs
-      set state = 'running', total_sections = ${order.length}, current_section = ${order[0] ?? null},
-          completed_sections = 0, progress = 0, error = null
+      set state = 'running', total_sections = ${order.length}, current_section = ${pendingOrder[0] ?? null},
+          completed_sections = ${completedBeforeStart}, progress = ${initialProgress}, error = null
       where id = ${jobId}`;
   } else {
     const [job] = await sql<{ id: string }[]>`
       insert into public.generation_jobs (project_id, state, total_sections, current_section)
-      values (${projectId}, 'running', ${order.length}, ${order[0] ?? null})
+      values (${projectId}, 'running', ${order.length}, ${pendingOrder[0] ?? null})
       returning id`;
     jobId = job.id;
   }
@@ -161,8 +178,8 @@ export async function generateDraft(
     let promptTokens = 0;
     let completionTokens = 0;
 
-    for (let i = 0; i < order.length; i++) {
-      const sectionKey = order[i];
+    for (let i = 0; i < pendingOrder.length; i++) {
+      const sectionKey = pendingOrder[i];
       const info = meta.get(sectionKey)!;
       const requirements = requirementsBySection.get(sectionKey) ?? [];
       const modelKind = modelKindForSection(sectionKey);
@@ -271,9 +288,9 @@ export async function generateDraft(
           from gap_input
         )
         update public.generation_jobs
-        set current_section = ${order[i + 1] ?? null}, state = 'running',
-            completed_sections = ${i + 1},
-            progress = ${Math.round(((i + 1) / order.length) * 100)},
+        set current_section = ${pendingOrder[i + 1] ?? null}, state = 'running',
+            completed_sections = ${completedBeforeStart + i + 1},
+            progress = ${Math.round(((completedBeforeStart + i + 1) / order.length) * 100)},
             prompt_tokens = ${promptTokens}, completion_tokens = ${completionTokens},
             model_used = ${out.modelId}
         where id = ${jobId}`;

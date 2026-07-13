@@ -14,8 +14,13 @@ import { createGenerationJob, generateDraft } from "@/server/generation/orchestr
  */
 export async function startGeneration(projectId: string): Promise<string> {
   const sql = getSql();
+  const [latest] = await sql<{ state: string; completed_sections: number }[]>`
+    select state, completed_sections from public.generation_jobs
+    where project_id = ${projectId}
+    order by created_at desc limit 1`;
+  const resumeCompletedSections = latest?.state === "failed" ? latest.completed_sections : 0;
   const jobId = await createGenerationJob(sql, projectId);
-  void generateDraft(sql, projectId, groqDrafter, { jobId }).catch(() => {
+  void generateDraft(sql, projectId, groqDrafter, { jobId, resumeCompletedSections }).catch(() => {
     // generateDraft already records the failure on the job row.
   });
   return jobId;

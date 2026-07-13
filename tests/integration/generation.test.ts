@@ -123,6 +123,23 @@ describe.skipIf(!TEST_DB)("Generation orchestrator", () => {
     expect(gapMarkers).toBeGreaterThan(0);
   });
 
+  it("resumes from the failed job prefix instead of accepting stale later sections", async () => {
+    const resumed: string[] = [];
+    const resumeDrafter: SectionDrafter = async (input) => {
+      resumed.push(input.sectionKey);
+      return fakeDrafter(input);
+    };
+
+    const result = await generateDraft(sql, PROJECT, resumeDrafter, { resumeCompletedSections: 26 });
+    expect(resumed).toEqual(["declaration"]);
+
+    const [job] = await sql<{ state: string; completed_sections: number; total_sections: number }[]>`
+      select state, completed_sections, total_sections
+      from public.generation_jobs where id = ${result.jobId}`;
+    expect(job.state).toBe("succeeded");
+    expect(job.completed_sections).toBe(job.total_sections);
+  });
+
   it("surfaces a drafter failure and marks the job failed (never swallowed)", async () => {
     const throwing: SectionDrafter = async () => {
       throw new Error("simulated model outage");

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { getCurrentUser } from "@/lib/auth";
 import { generationStatusAction } from "./actions";
 import { getProject } from "@/server/projects";
 
@@ -12,7 +13,7 @@ export default async function GeneratePage({
   params: Promise<{ projectId: string }>;
 }) {
   const { projectId } = await params;
-  const project = await getProject(projectId);
+  const [project, user] = await Promise.all([getProject(projectId), getCurrentUser()]);
   if (!project) notFound();
 
   const initial = await generationStatusAction(projectId);
@@ -29,7 +30,11 @@ export default async function GeneratePage({
           provenance, and independently verifies coverage against the checklist.
         </p>
       </div>
-      <GeneratePanel projectId={projectId} initial={initial} />
+      <GeneratePanel
+        projectId={projectId}
+        initial={initial}
+        role={user?.profile?.role ?? "promoter"}
+      />
     </div>
   );
 }
