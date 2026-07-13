@@ -49,13 +49,11 @@ export async function extractEntities(
 
   const client = getGroq();
   const model = opts.model ?? getModels().drafting;
-  const toolName = "record_entities";
-
-  // Forced function calling gives a structured, schema-shaped result;
-  // temperature 0 for deterministic extraction.
+  // Strict structured output gives a schema-shaped result; temperature 0 for
+  // deterministic extraction.
   const response = await client.chat.completions.create({
     model,
-    max_tokens: 16000,
+    max_tokens: 4096,
     temperature: 0,
     messages: [
       { role: "system", content: EXTRACTION_GUIDANCE },
@@ -69,30 +67,26 @@ export async function extractEntities(
           `\n\n---\n${body}`,
       },
     ],
-    tools: [
-      {
-        type: "function",
-        function: {
-          name: toolName,
-          description: `Record the "${entityType}" entities extracted from the document.`,
-          parameters: inputSchema,
-        },
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: `${entityType}_extraction`,
+        strict: true,
+        schema: inputSchema,
       },
-    ],
-    tool_choice: { type: "function", function: { name: toolName } },
+    },
   });
 
-  const call = response.choices[0]?.message?.tool_calls?.[0];
-  if (!call) {
-    // No structured result — surface loudly, never a silent empty.
+  const content = response.choices[0]?.message?.content;
+  if (!content) {
     throw new Error(
-      `Structured extraction for ${entityType} returned no tool output (finish_reason: ${response.choices[0]?.finish_reason}).`,
+      `Structured extraction for ${entityType} returned no content (finish_reason: ${response.choices[0]?.finish_reason}).`,
     );
   }
 
   let raw: unknown;
   try {
-    raw = JSON.parse(call.function.arguments);
+    raw = JSON.parse(content);
   } catch {
     throw new Error(`Extraction for ${entityType} returned invalid JSON arguments.`);
   }
@@ -136,6 +130,14 @@ export async function extractFromDocument(params: {
 
     for (const entityType of entityTypes) {
       const { rows, truncated } = await extractEntities(entityType, params.text);
+      const { data: priorRows, error: priorError } = await admin
+        .from("extracted_entities")
+        .select("id")
+        .eq("document_id", params.documentId)
+        .eq("entity_type", entityType)
+        .eq("confirmed_by_promoter", false);
+      if (priorError) throw new Error(`Load prior ${entityType} failed: ${priorError.message}`);
+
       if (rows.length > 0) {
         const insertRows = rows.map((r) => ({
           project_id: params.projectId,
@@ -147,6 +149,11 @@ export async function extractFromDocument(params: {
         }));
         const { error } = await admin.from("extracted_entities").insert(insertRows);
         if (error) throw new Error(`Persist ${entityType} failed: ${error.message}`);
+      }
+      const priorIds = (priorRows ?? []).map((row) => row.id);
+      if (priorIds.length > 0) {
+        const { error } = await admin.from("extracted_entities").delete().in("id", priorIds);
+        if (error) throw new Error(`Replace prior ${entityType} failed: ${error.message}`);
       }
       byType.push({ entityType, count: rows.length, truncated });
       total += rows.length;
