@@ -21,7 +21,7 @@ export interface EmbeddingProvider {
 const embeddingEnvSchema = z.object({
   EMBEDDINGS_PROVIDER: z.string().min(1).default("gemini"),
   EMBEDDINGS_API_KEY: z.string().min(1, "EMBEDDINGS_API_KEY is required for embeddings"),
-  EMBEDDINGS_MODEL: z.string().min(1).default("text-embedding-004"),
+  EMBEDDINGS_MODEL: z.string().min(1).default("gemini-embedding-2"),
   EMBEDDINGS_DIM: z.coerce.number().int().positive().default(768),
 });
 

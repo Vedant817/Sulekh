@@ -10,7 +10,7 @@ const validRaw = {
   MODEL_DRAFTING: "claude-sonnet-5",
   MODEL_REASONING: "claude-opus-4-8",
   EMBEDDINGS_API_KEY: "emb-key",
-  EMBEDDINGS_MODEL: "text-embedding-004",
+  EMBEDDINGS_MODEL: "gemini-embedding-2",
   APP_URL: "http://localhost:3000",
 } satisfies Record<string, string>;
 
