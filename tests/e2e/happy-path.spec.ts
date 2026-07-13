@@ -186,11 +186,20 @@ test.describe("Sulekh live journey", () => {
       .toBe("succeeded");
     await expect(page.getByText(/Sections \(27\)/i)).toBeVisible();
 
-    await page.goto(`${projectRoot}/gaps`);
+    await expect(page.getByRole("heading", { name: /draft generated.*what to do next/i })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Project workflow" })).toBeVisible();
+    await page.getByRole("link", { name: /review gaps & coverage/i }).click();
+
     await expect(page.getByRole("heading", { name: "Gaps & coverage" })).toBeVisible();
     const coverageCard = page.getByText("Coverage", { exact: true }).locator("..");
     await expect(coverageCard).toContainText(/\d+%/);
     await expect(page.getByText(/Requirement coverage \(43\)/i)).toBeVisible();
+    const promoterGapAction = page.getByRole("link", { name: /add missing issuer details|correct source values/i }).first();
+    if (await promoterGapAction.count()) {
+      await promoterGapAction.click();
+      await expect(page.getByText("You are correcting a flagged disclosure", { exact: true })).toBeVisible();
+      await expect(page.locator('[data-focused="true"]')).toBeVisible();
+    }
 
     await page.goto(projectRoot);
     await page.getByPlaceholder("intermediary@firm.com").fill(INTERMEDIARY_EMAIL!);
@@ -200,8 +209,18 @@ test.describe("Sulekh live journey", () => {
     await page.context().clearCookies();
     await signIn(page, INTERMEDIARY_EMAIL!, INTERMEDIARY_PASSWORD!);
     await page.getByRole("link", { name: new RegExp(PROJECT_NAME) }).click();
-    await page.getByRole("link", { name: /intermediary review/i }).click();
+    await page.getByRole("navigation", { name: "Project workflow" }).getByRole("link", { name: "Gaps", exact: true }).click();
+    const intermediaryGapAction = page.getByRole("link", { name: /review highlighted section|review inconsistency/i }).first();
+    if (await intermediaryGapAction.count()) {
+      await intermediaryGapAction.click();
+      await expect(page.getByText("Flagged section opened for review", { exact: true })).toBeVisible();
+      await expect(page.locator('[data-focused="true"]')).toBeVisible();
+      await expect(page.getByText(/open issue.*for this section/i).first()).toBeVisible();
+    } else {
+      await page.getByRole("navigation", { name: "Project workflow" }).getByRole("link", { name: "Review", exact: true }).click();
+    }
     await expect(page.getByRole("heading", { name: "Intermediary review" })).toBeVisible();
+    await expect(page.getByText("Coverage is part of this review", { exact: true })).toBeVisible();
 
     const firstComment = page.getByPlaceholder("Add a comment…").first();
     await firstComment.fill("Live E2E evidence and grounding reviewed.");
