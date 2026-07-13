@@ -43,9 +43,20 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Corpus source PDFs (large; fetched via `pnpm corpus:fetch` from corpus/sources.json)
+# Corpus and real-world test artifacts (large and/or potentially sensitive).
+# Keep Markdown sourcing guides and corpus/sources.json tracked; never commit
+# downloaded issuer documents or consented data-room material.
 corpus/*.pdf
 corpus/*.txt
+corpus/*.csv
+corpus/*.xls
+corpus/*.xlsx
+corpus/*.doc
+corpus/*.docx
+corpus/*.zip
+corpus/*.jsonl
+corpus/test-data/**
+!corpus/test-data/*.md
 
 # Internal planning docs (local only)
 IMPLEMENTATION_PLAN.md
