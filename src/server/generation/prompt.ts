@@ -13,7 +13,7 @@ STRICT RULES:
 - NEVER invent, estimate, or guess a figure, name, date, or fact. If a disclosure a requirement calls for is not supported by the provided data, insert a marker exactly like [[GAP: <precise description of the missing item>]] in place of the value.
 - Write in formal, disclosure-appropriate prose with clear headings. Cite the governing requirement where natural.
 - Do not claim to have covered a requirement you only marked as a GAP.
-- When done, call the submit_section tool with the full markdown and the list of requirement codes you substantively addressed (exclude codes you only left as GAPs).`;
+- Return the full markdown and the list of requirement codes you substantively addressed (exclude codes you only left as GAPs) in the required structured response.`;
 
 export function buildUserPrompt(input: DrafterInput): string {
   const reqs = input.requirements
@@ -42,6 +42,6 @@ export function buildUserPrompt(input: DrafterInput): string {
     `CONFIRMED EXTRACTED ENTITIES:`,
     entities,
     ``,
-    `Draft the section now, then call submit_section.`,
+    `Draft the section now and return the required structured response.`,
   ].join("\n");
 }
