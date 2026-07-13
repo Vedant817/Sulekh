@@ -7,6 +7,13 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname),
   },
+  experimental: {
+    // Source documents are validated to 25 MB per request before persistence.
+    // Leave room for multipart boundaries above that application-level cap.
+    serverActions: {
+      bodySizeLimit: "26mb",
+    },
+  },
 };
 
 export default nextConfig;

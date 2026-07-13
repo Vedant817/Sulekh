@@ -1,10 +1,11 @@
 "use client";
 
+import { CheckCircle2, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
-import { confirmEntityAction } from "./actions";
+import { confirmEntitiesAction, confirmEntityAction } from "./actions";
 
 type Entity = {
   id: string;
@@ -23,9 +24,18 @@ const TYPE_LABEL: Record<string, string> = {
   promoter: "Promoters",
 };
 
-function EntityRow({ projectId, entity }: { projectId: string; entity: Entity }) {
+function EntityRow({
+  projectId,
+  entity,
+  confirmed,
+  onConfirmed,
+}: {
+  projectId: string;
+  entity: Entity;
+  confirmed: boolean;
+  onConfirmed: (entityId: string) => void;
+}) {
   const effective = entity.corrected_data ?? entity.data;
-  const [confirmed, setConfirmed] = useState(entity.confirmed_by_promoter);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(() => JSON.stringify(effective, null, 2));
   const [busy, setBusy] = useState(false);
@@ -37,7 +47,7 @@ function EntityRow({ projectId, entity }: { projectId: string; entity: Entity })
     const res = await confirmEntityAction(projectId, entity.id, corrected);
     setBusy(false);
     if (res.ok) {
-      setConfirmed(true);
+      onConfirmed(entity.id);
       setEditing(false);
     } else {
       setError(res.error ?? "Could not save.");
@@ -106,6 +116,101 @@ function EntityRow({ projectId, entity }: { projectId: string; entity: Entity })
   );
 }
 
+function EntityGroup({
+  projectId,
+  type,
+  entities,
+}: {
+  projectId: string;
+  type: string;
+  entities: Entity[];
+}) {
+  const [confirmedIds, setConfirmedIds] = useState(
+    () => new Set(entities.filter((entity) => entity.confirmed_by_promoter).map((entity) => entity.id)),
+  );
+  const [reviewed, setReviewed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const unconfirmedIds = entities
+    .filter((entity) => !confirmedIds.has(entity.id))
+    .map((entity) => entity.id);
+
+  function markConfirmed(entityId: string): void {
+    setConfirmedIds((current) => new Set(current).add(entityId));
+  }
+
+  async function confirmReviewedGroup(): Promise<void> {
+    setBusy(true);
+    setError(null);
+    const result = await confirmEntitiesAction(projectId, unconfirmedIds);
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error ?? "Could not confirm the reviewed values.");
+      return;
+    }
+    setConfirmedIds((current) => new Set([...current, ...unconfirmedIds]));
+    setReviewed(false);
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border">
+      <div className="flex flex-col gap-3 border-b bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-sm font-semibold uppercase tracking-wide">
+            {TYPE_LABEL[type] ?? type}
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {confirmedIds.size}/{entities.length} confirmed
+          </p>
+        </div>
+        {unconfirmedIds.length > 0 ? (
+          <div className="flex flex-col gap-2 sm:items-end">
+            <label className="flex cursor-pointer items-start gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={reviewed}
+                onChange={(event) => setReviewed(event.target.checked)}
+                className="mt-0.5 size-4 rounded border-input"
+              />
+              <span>I reviewed these values against the source snippets.</span>
+            </label>
+            <Button
+              size="sm"
+              disabled={!reviewed || busy}
+              onClick={confirmReviewedGroup}
+            >
+              <ShieldCheck aria-hidden="true" />
+              {busy
+                ? "Confirming…"
+                : `Confirm ${unconfirmedIds.length} reviewed value${unconfirmedIds.length === 1 ? "" : "s"}`}
+            </Button>
+          </div>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700">
+            <CheckCircle2 className="size-4" aria-hidden="true" /> Review complete
+          </span>
+        )}
+      </div>
+      <ul className="grid gap-3 p-3">
+        {entities.map((entity) => (
+          <EntityRow
+            key={entity.id}
+            projectId={projectId}
+            entity={entity}
+            confirmed={confirmedIds.has(entity.id)}
+            onConfirmed={markConfirmed}
+          />
+        ))}
+      </ul>
+      {error ? (
+        <p role="alert" className="border-t bg-destructive/10 px-4 py-2 text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function ExtractedEntities({
   projectId,
   entities,
@@ -132,16 +237,7 @@ export function ExtractedEntities({
         </p>
       </div>
       {[...grouped.entries()].map(([type, list]) => (
-        <div key={type} className="flex flex-col gap-2">
-          <h3 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            {TYPE_LABEL[type] ?? type} ({list.length})
-          </h3>
-          <ul className="flex flex-col gap-2">
-            {list.map((e) => (
-              <EntityRow key={e.id} projectId={projectId} entity={e} />
-            ))}
-          </ul>
-        </div>
+        <EntityGroup key={type} projectId={projectId} type={type} entities={list} />
       ))}
     </section>
   );

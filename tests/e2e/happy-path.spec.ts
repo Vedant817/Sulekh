@@ -38,7 +38,7 @@ test.describe("Sulekh happy path", () => {
 
     // Open the first project.
     await page.getByRole("link", { name: /SAMPLE|IPO/i }).first().click();
-    await expect(page.getByRole("link", { name: /guided intake/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /issuer setup/i })).toBeVisible();
 
     // Generate a draft.
     await page.getByRole("link", { name: /generate draft/i }).click();
