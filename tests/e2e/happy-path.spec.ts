@@ -1,3 +1,4 @@
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
@@ -20,6 +21,55 @@ const configured = Boolean(
     INTERMEDIARY_EMAIL &&
     INTERMEDIARY_PASSWORD,
 );
+
+type CorpusManifest = {
+  sources: Array<{ file: string; url: string }>;
+};
+
+/** Ensure a clean checkout can run the live journey without a hidden fixture. */
+async function ensureSourcePdf(): Promise<string> {
+  const sourcePdf = path.resolve(process.cwd(), "corpus/reference-drhp-1.pdf");
+  try {
+    const file = await stat(sourcePdf);
+    if (file.size > 0) return sourcePdf;
+  } catch {
+    // Corpus PDFs are intentionally ignored. Fetch the real manifest source.
+  }
+
+  const manifestPath = path.resolve(process.cwd(), "corpus/sources.json");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as CorpusManifest;
+  const source = manifest.sources.find((item) => item.file === "reference-drhp-1.pdf");
+  if (!source) {
+    throw new Error(`Missing reference-drhp-1.pdf in ${manifestPath}`);
+  }
+
+  const response = await fetch(source.url, {
+    headers: {
+      "user-agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+      accept: "application/pdf,*/*",
+    },
+    redirect: "follow",
+    signal: AbortSignal.timeout(120_000),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Live E2E fixture fetch failed: HTTP ${response.status} ${response.statusText}. ` +
+        "Run `pnpm corpus:fetch` or place corpus/reference-drhp-1.pdf manually.",
+    );
+  }
+
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (bytes.length < 1_000_000 || bytes.subarray(0, 5).toString() !== "%PDF-") {
+    throw new Error(
+      `Live E2E fixture fetch returned ${bytes.length} bytes that are not a valid PDF. ` +
+        "Run `pnpm corpus:fetch` or place corpus/reference-drhp-1.pdf manually.",
+    );
+  }
+  await mkdir(path.dirname(sourcePdf), { recursive: true });
+  await writeFile(sourcePdf, bytes);
+  return sourcePdf;
+}
 
 async function signIn(page: Page, email: string, password: string): Promise<void> {
   await page.goto("/login");
@@ -88,6 +138,7 @@ test.describe("Sulekh live journey", () => {
   test("promoter setup → live extraction → generation → review → final exports", async ({
     page,
   }, testInfo) => {
+    const sourcePdf = await ensureSourcePdf();
     await signIn(page, PROMOTER_EMAIL!, PROMOTER_PASSWORD!);
 
     await page.getByLabel("New IPO project").fill(PROJECT_NAME);
@@ -101,7 +152,6 @@ test.describe("Sulekh live journey", () => {
 
     await completeIntake(page);
 
-    const sourcePdf = path.resolve(process.cwd(), "corpus/reference-drhp-1.pdf");
     await page.locator("#files").setInputFiles(sourcePdf);
     await page.locator('select[name="docType"]').selectOption("audited_financials");
     await page.getByRole("button", { name: /upload and prepare 1/i }).click();

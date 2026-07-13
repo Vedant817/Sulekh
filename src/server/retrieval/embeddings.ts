@@ -22,10 +22,13 @@ export interface EmbeddingProvider {
   dispose?(): Promise<void>;
 }
 
+export const LOCAL_EMBEDDING_MODEL = "Xenova/bge-base-en-v1.5";
+export const GEMINI_EMBEDDING_MODEL = "gemini-embedding-2";
+
 const embeddingEnvSchema = z.object({
   EMBEDDINGS_PROVIDER: z.enum(["local", "gemini"]).default("local"),
   EMBEDDINGS_API_KEY: z.string().trim().optional().default(""),
-  EMBEDDINGS_MODEL: z.string().min(1).default("Xenova/bge-base-en-v1.5"),
+  EMBEDDINGS_MODEL: z.string().trim().optional().default(""),
   EMBEDDINGS_MODEL_REVISION: z
     .string()
     .min(1)
@@ -42,13 +45,27 @@ const embeddingEnvSchema = z.object({
   }
 });
 
+export function resolveEmbeddingModel(
+  provider: "local" | "gemini",
+  configuredModel: string,
+): string {
+  if (configuredModel) return configuredModel;
+  return provider === "gemini" ? GEMINI_EMBEDDING_MODEL : LOCAL_EMBEDDING_MODEL;
+}
+
 function readConfig() {
   const parsed = embeddingEnvSchema.safeParse(process.env);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
     throw new Error(`Embeddings misconfigured:\n  - ${issues.join("\n  - ")}`);
   }
-  return parsed.data;
+  return {
+    ...parsed.data,
+    EMBEDDINGS_MODEL: resolveEmbeddingModel(
+      parsed.data.EMBEDDINGS_PROVIDER,
+      parsed.data.EMBEDDINGS_MODEL,
+    ),
+  };
 }
 
 /** Google Gemini embeddings via the Generative Language REST API. */

@@ -33,7 +33,8 @@ export const serverEnvSchema = z.object({
   // is only required when explicitly selecting the optional Gemini adapter.
   EMBEDDINGS_PROVIDER: nonEmpty("EMBEDDINGS_PROVIDER").default("local"),
   EMBEDDINGS_API_KEY: z.string().trim().optional().default(""),
-  EMBEDDINGS_MODEL: nonEmpty("EMBEDDINGS_MODEL").default("Xenova/bge-base-en-v1.5"),
+  // The provider adapter applies a provider-specific default when this is blank.
+  EMBEDDINGS_MODEL: z.string().trim().optional().default(""),
   EMBEDDINGS_MODEL_REVISION: nonEmpty("EMBEDDINGS_MODEL_REVISION").default(
     "4d6cd88e18e51a5e020c2c305726d76ada9c03cf",
   ),
