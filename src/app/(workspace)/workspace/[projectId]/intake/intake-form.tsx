@@ -89,7 +89,7 @@ export function IntakeForm({
       );
     } else if (q.type === "boolean") {
       control = (
-        <div className="flex gap-2">
+        <div id={q.id} role="group" aria-label={q.label} className="flex gap-2">
           {[
             { v: true, l: "Yes" },
             { v: false, l: "No" },
@@ -115,11 +115,11 @@ export function IntakeForm({
       control = (
         <textarea
           {...common}
-          defaultValue={typeof value === "string" ? value : ""}
+          value={typeof value === "string" ? value : ""}
           maxLength={q.maxLength}
           rows={4}
+          onChange={(e) => setLocal(q.id, e.target.value)}
           onBlur={(e) => {
-            setLocal(q.id, e.target.value);
             persist(q, e.target.value);
           }}
           className="rounded-lg border border-input bg-background p-2.5 text-sm"
@@ -136,9 +136,9 @@ export function IntakeForm({
         <Input
           {...common}
           type={inputType}
-          defaultValue={value == null ? "" : String(value)}
+          value={value == null ? "" : String(value)}
+          onChange={(e) => setLocal(q.id, e.target.value)}
           onBlur={(e) => {
-            setLocal(q.id, e.target.value);
             persist(q, e.target.value);
           }}
         />

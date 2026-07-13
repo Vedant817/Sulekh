@@ -1,5 +1,6 @@
-import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import { createIntegrationSql, type Sql } from "./db";
 
 import { getSectionRequirements } from "@/server/retrieval/retrieve";
 
@@ -14,7 +15,7 @@ const TEST_DB = process.env.TEST_DATABASE_URL;
 describe.skipIf(!TEST_DB)("Retrieval — governing requirements per section", () => {
   let sql: Sql;
   beforeAll(() => {
-    sql = postgres(TEST_DB!, { max: 1, ssl: false, onnotice: () => {} });
+    sql = createIntegrationSql(TEST_DB!);
   });
   afterAll(async () => {
     if (sql) await sql.end({ timeout: 5 });

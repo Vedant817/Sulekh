@@ -9,9 +9,15 @@ import { z } from "zod";
  */
 
 export const financialLineItemSchema = z.object({
-  statement: z.enum(["profit_and_loss", "balance_sheet", "cash_flow"]),
-  period_label: z.string().describe("e.g. FY24, FY23, H1FY25"),
-  line_item: z.string().describe("The line item label as printed"),
+  statement: z
+    .enum(["profit_and_loss", "balance_sheet", "cash_flow"])
+    .nullable()
+    .describe("Null when the source does not identify a recognised financial statement"),
+  period_label: z.string().nullable().describe("e.g. FY24, FY23, H1FY25; null if absent"),
+  line_item: z
+    .string()
+    .nullable()
+    .describe("The line item label as printed; null when the chunk has no financial row"),
   amount: z.number().nullable().describe("Numeric amount; null if not legible"),
   unit: z.string().nullable().describe("e.g. INR lakhs, INR crores"),
 });

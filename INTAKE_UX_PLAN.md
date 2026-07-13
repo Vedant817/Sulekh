@@ -31,12 +31,14 @@ The legacy documents URL redirects into the source-document section of this work
 - Extractable files begin the real extraction path automatically; failed files show a retry action and the exact error.
 - A reviewed entity group can be confirmed in one explicit action; corrections still override extracted data.
 - Existing `/documents` links land on the unified source-document section.
-- Typecheck, lint, unit tests, and production build pass. The Phase 2 gate remains unchecked until the deployed/live document-set acceptance test passes.
+- Typecheck, lint, unit/integration tests, and production build pass. The Phase 2 journey passes with a real filed DRHP and live cloud services; the explicit deployed-application acceptance remains open.
 
 ## Verification recorded
 
 - `pnpm typecheck` — passed.
 - `pnpm lint` — passed.
-- `pnpm test` — 48 passed; 30 live-service integration tests skipped because their configured services were not present.
+- `TEST_DATABASE_URL="$DATABASE_URL" pnpm test` — 16 files / 84 tests passed against the migrated cloud Postgres database; no suite skipped.
 - `pnpm build` — passed on Next.js 16.2.10.
-- Deployed Supabase Storage + Groq extraction confirmation — not claimed; still required to close TASKS.md 2.7.
+- `pnpm test:e2e` — 2/2 passed in 4.6 minutes against the local Next.js app using live Supabase Auth/Postgres/Storage and live Groq. The browser journey completed 21/21 intake answers, uploaded the real 7.4 MB `reference-drhp-1.pdf`, extracted evidence-backed financial values, group-confirmed them, generated 27/27 sections, reviewed gaps, assigned an intermediary, exercised comment → needs-changes → edit → approve-all, and verified final DOCX, PDF, and 43-requirement JSON exports.
+- The large-PDF run exposed and fixed Groq request-size and strict-schema failures: extraction now sends bounded chunks, rejects null/unrelated candidates before persistence, and falls back to JSON-object mode only for Groq's explicit `json_validate_failed` response while retaining mandatory Zod validation.
+- The Phase 2 live-service behavior is verified, but TASKS.md 2.7 explicitly requires the application on a deployed URL. That gate remains unchecked because this browser run used `localhost`.

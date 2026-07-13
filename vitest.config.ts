@@ -12,6 +12,11 @@ export default defineConfig({
     ],
     exclude: ["tests/e2e/**", "node_modules/**", ".next/**"],
     environment: "node",
+    // Real Supabase integration calls include network + transaction latency.
+    // Unit tests remain fast, while live-service assertions get an honest
+    // budget instead of inheriting Vitest's local-only 5 second default.
+    testTimeout: 60_000,
+    hookTimeout: 60_000,
   },
   resolve: {
     alias: {

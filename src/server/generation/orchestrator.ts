@@ -71,19 +71,35 @@ async function loadCatalog(sql: Sql): Promise<(CatalogSection & { title: string;
     from public.drhp_section_catalog order by ordinal`;
 }
 
-async function loadRequirements(sql: Sql, sectionKey: string): Promise<SectionRequirement[]> {
+async function loadRequirementsBySection(
+  sql: Sql,
+): Promise<Map<string, SectionRequirement[]>> {
   const rows = await sql<
-    { id: string; code: string; title: string; description: string | null; mandatory: boolean; source_citation: string }[]
+    {
+      id: string;
+      section_key: string;
+      code: string;
+      title: string;
+      description: string | null;
+      mandatory: boolean;
+      source_citation: string;
+    }[]
   >`select id, code, title, description, mandatory, source_citation
-    from public.requirement_checklist where section_key = ${sectionKey} order by ordinal`;
-  return rows.map((r) => ({
-    id: r.id,
-    code: r.code,
-    title: r.title,
-    description: r.description,
-    mandatory: r.mandatory,
-    citation: r.source_citation,
-  }));
+    , section_key from public.requirement_checklist order by section_key, ordinal`;
+  const bySection = new Map<string, SectionRequirement[]>();
+  for (const row of rows) {
+    const requirements = bySection.get(row.section_key) ?? [];
+    requirements.push({
+      id: row.id,
+      code: row.code,
+      title: row.title,
+      description: row.description,
+      mandatory: row.mandatory,
+      citation: row.source_citation,
+    });
+    bySection.set(row.section_key, requirements);
+  }
+  return bySection;
 }
 
 export type GenerationResult = {
@@ -137,6 +153,7 @@ export async function generateDraft(
   try {
     const intake = await loadIntake(sql, projectId);
     const entities = await loadConfirmedEntities(sql, projectId);
+    const requirementsBySection = await loadRequirementsBySection(sql);
 
     const sectionsGenerated: string[] = [];
     let totalGaps = 0;
@@ -147,11 +164,8 @@ export async function generateDraft(
     for (let i = 0; i < order.length; i++) {
       const sectionKey = order[i];
       const info = meta.get(sectionKey)!;
-      const requirements = await loadRequirements(sql, sectionKey);
+      const requirements = requirementsBySection.get(sectionKey) ?? [];
       const modelKind = modelKindForSection(sectionKey);
-
-      await sql`update public.generation_jobs
-        set current_section = ${sectionKey}, state = 'running' where id = ${jobId}`;
 
       const out = await drafter({
         sectionKey,
@@ -164,60 +178,101 @@ export async function generateDraft(
       promptTokens += out.promptTokens;
       completionTokens += out.completionTokens;
 
-      // Persist the section draft.
-      const [section] = await sql<{ id: string }[]>`
-        insert into public.drhp_sections
-          (project_id, section_key, title, ordinal, status, draft_markdown, model_used, is_mandatory)
-        values (${projectId}, ${sectionKey}, ${info.title}, ${info.ordinal}, 'draft',
-                ${out.markdown}, ${out.modelId}, ${info.mandatory})
-        on conflict (project_id, section_key) do update
-          set status = 'draft', draft_markdown = excluded.draft_markdown,
-              model_used = excluded.model_used, title = excluded.title, ordinal = excluded.ordinal
-        returning id`;
-
-      // Provenance: which intake fields + entities produced this section.
-      const intakeKeys = Object.keys(intake);
-      await sql`delete from public.section_provenance where section_id = ${section.id}`;
-      await sql`insert into public.section_provenance
-          (section_id, project_id, intake_field_keys, entity_ids, notes)
-        values (${section.id}, ${projectId}, ${sql.array(intakeKeys)}, ${sql.array([])},
-                ${`model=${out.modelId}; requirements=${requirements.map((r) => r.code).join(",")}`})`;
-
       // Independent coverage verification (never trust the model's self-report).
       const coverage = checkCoverage(out.markdown, requirements, out.addressedCodes);
-      for (const c of coverage) {
-        const req = requirements.find((r) => r.code === c.code)!;
-        await sql`insert into public.requirement_coverage
-            (project_id, requirement_id, status, evidence)
-          values (${projectId}, ${req.id}, ${c.status},
-                  ${sql.json({ claimedByModel: c.claimedByModel, present: c.present, overclaimed: c.overclaimed, section: sectionKey })})
-          on conflict (project_id, requirement_id) do update
-            set status = excluded.status, evidence = excluded.evidence, updated_at = now()`;
-      }
+      const requirementsByCode = new Map(requirements.map((requirement) => [requirement.code, requirement]));
+      const coverageRows = coverage.map((item) => ({
+        requirement_id: requirementsByCode.get(item.code)!.id,
+        status: item.status,
+        evidence: {
+          claimedByModel: item.claimedByModel,
+          present: item.present,
+          overclaimed: item.overclaimed,
+          section: sectionKey,
+        },
+      }));
 
       // Gap flags: explicit [[GAP]] markers, missing mandatory requirements, and over-claims.
       const gapMarkers = parseGapMarkers(out.markdown);
-      for (const g of gapMarkers) {
-        await sql`insert into public.gap_flags (project_id, flag_type, severity, section_key, message, details)
-          values (${projectId}, 'missing', 'warning', ${sectionKey}, ${`Gap noted by drafter: ${g}`},
-                  ${sql.json({ source: "gap_marker" })})`;
-        totalGaps += 1;
-      }
+      const gapRows: {
+        flag_type: "missing" | "unaddressed";
+        severity: "warning" | "blocker";
+        section_key: string;
+        field_key: string | null;
+        message: string;
+        details: Record<string, unknown>;
+      }[] = gapMarkers.map((gap) => ({
+        flag_type: "missing",
+        severity: "warning",
+        section_key: sectionKey,
+        field_key: null,
+        message: `Gap noted by drafter: ${gap}`,
+        details: { source: "gap_marker" },
+      }));
+      totalGaps += gapMarkers.length;
       for (const c of coverage) {
-        const req = requirements.find((r) => r.code === c.code)!;
+        const req = requirementsByCode.get(c.code)!;
         if (c.status === "missing" && req.mandatory) {
-          await sql`insert into public.gap_flags (project_id, flag_type, severity, section_key, field_key, message, details)
-            values (${projectId}, ${c.overclaimed ? "unaddressed" : "missing"}, 'blocker', ${sectionKey}, ${c.code},
-                    ${`Mandatory requirement ${c.code} (${req.title}) not covered${c.overclaimed ? " despite model claim" : ""}.`},
-                    ${sql.json({ source: "coverage_check", overclaimed: c.overclaimed })})`;
+          gapRows.push({
+            flag_type: c.overclaimed ? "unaddressed" : "missing",
+            severity: "blocker",
+            section_key: sectionKey,
+            field_key: c.code,
+            message: `Mandatory requirement ${c.code} (${req.title}) not covered${c.overclaimed ? " despite model claim" : ""}.`,
+            details: { source: "coverage_check", overclaimed: c.overclaimed },
+          });
           totalGaps += 1;
           if (c.overclaimed) totalOverclaims += 1;
         }
       }
 
       sectionsGenerated.push(sectionKey);
-      await sql`update public.generation_jobs
-        set completed_sections = ${i + 1},
+      const intakeKeys = Object.keys(intake);
+      const provenanceNotes = `model=${out.modelId}; requirements=${requirements.map((r) => r.code).join(",")}`;
+
+      // Persist one section atomically in one round-trip. Keeping the job update
+      // in the same statement preserves section-by-section visible progress,
+      // while avoiding hundreds of sequential calls through a cloud pooler.
+      await sql`
+        with upserted_section as (
+          insert into public.drhp_sections
+            (project_id, section_key, title, ordinal, status, draft_markdown, model_used, is_mandatory)
+          values (${projectId}, ${sectionKey}, ${info.title}, ${info.ordinal}, 'draft',
+                  ${out.markdown}, ${out.modelId}, ${info.mandatory})
+          on conflict (project_id, section_key) do update
+            set status = 'draft', draft_markdown = excluded.draft_markdown,
+                model_used = excluded.model_used, title = excluded.title, ordinal = excluded.ordinal
+          returning id
+        ), deleted_provenance as (
+          delete from public.section_provenance
+          where section_id = (select id from upserted_section)
+        ), inserted_provenance as (
+          insert into public.section_provenance
+            (section_id, project_id, intake_field_keys, entity_ids, notes)
+          select id, ${projectId}, ${sql.array(intakeKeys)}, ${sql.array([])}, ${provenanceNotes}
+          from upserted_section
+        ), coverage_input as (
+          select * from jsonb_to_recordset(${sql.json(coverageRows)}::jsonb)
+            as row(requirement_id uuid, status text, evidence jsonb)
+        ), upserted_coverage as (
+          insert into public.requirement_coverage (project_id, requirement_id, status, evidence)
+          select ${projectId}, requirement_id, status::public.coverage_status, evidence
+          from coverage_input
+          on conflict (project_id, requirement_id) do update
+            set status = excluded.status, evidence = excluded.evidence, updated_at = now()
+        ), gap_input as (
+          select * from jsonb_to_recordset(${sql.json(gapRows as never)}::jsonb)
+            as row(flag_type text, severity text, section_key text, field_key text, message text, details jsonb)
+        ), inserted_gaps as (
+          insert into public.gap_flags
+            (project_id, flag_type, severity, section_key, field_key, message, details)
+          select ${projectId}, flag_type::public.gap_type, severity::public.gap_severity,
+                 section_key, field_key, message, details
+          from gap_input
+        )
+        update public.generation_jobs
+        set current_section = ${order[i + 1] ?? null}, state = 'running',
+            completed_sections = ${i + 1},
             progress = ${Math.round(((i + 1) / order.length) * 100)},
             prompt_tokens = ${promptTokens}, completion_tokens = ${completionTokens},
             model_used = ${out.modelId}

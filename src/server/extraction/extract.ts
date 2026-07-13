@@ -4,21 +4,22 @@ import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 import { getGroq, getModels } from "@/lib/groq";
+import { isStructuredOutputValidationError } from "@/lib/groq-errors";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { chunkExtractionText } from "@/server/extraction/chunks";
+import { hasMinimumEntityIdentity } from "@/server/extraction/quality";
 import {
   DOC_TYPE_ENTITIES,
   ENTITY_SCHEMAS,
   type ExtractionEntityType,
 } from "@/schemas/extraction";
 
-/** Cap on document text sent to the model; truncation is surfaced, not silent. */
-const MAX_TEXT_CHARS = 120_000;
-
 const EXTRACTION_GUIDANCE = `You extract structured data from an SME issuer's source document for an IPO offer document (DRHP).
 Rules:
 - Extract ONLY values that are actually present in the provided text.
 - If a field is not legible or not present, use null — never guess or fabricate.
 - If the document contains none of the requested entities, return an empty list.
+- A financial_line_item must be a row from a profit and loss statement, balance sheet, or cash flow statement with an explicit reporting period. Offer size, share price, face value, and other cover-page figures are not financial statement line items.
 - For each entity, include a short verbatim "evidence" quote from the text that supports it.
 - Preserve numbers exactly as printed (do not convert units).`;
 
@@ -44,59 +45,91 @@ export async function extractEntities(
     target: "jsonSchema7",
   }) as Record<string, unknown>;
 
-  const truncated = text.length > MAX_TEXT_CHARS;
-  const body = truncated ? text.slice(0, MAX_TEXT_CHARS) : text;
-
   const client = getGroq();
   const model = opts.model ?? getModels().drafting;
-  // Strict structured output gives a schema-shaped result; temperature 0 for
-  // deterministic extraction.
-  const response = await client.chat.completions.create({
-    model,
-    max_tokens: 4096,
-    temperature: 0,
-    messages: [
-      { role: "system", content: EXTRACTION_GUIDANCE },
-      {
-        role: "user",
-        content:
-          `Extract all "${entityType}" entities from the following document text.` +
-          (truncated
-            ? ` NOTE: the document was truncated to the first ${MAX_TEXT_CHARS} characters.`
-            : "") +
-          `\n\n---\n${body}`,
-      },
-    ],
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: `${entityType}_extraction`,
-        strict: true,
-        schema: inputSchema,
-      },
-    },
-  });
+  const { chunks, truncated } = chunkExtractionText(text);
+  const rows: ExtractedRow[] = [];
 
-  const content = response.choices[0]?.message?.content;
-  if (!content) {
-    throw new Error(
-      `Structured extraction for ${entityType} returned no content (finish_reason: ${response.choices[0]?.finish_reason}).`,
+  for (const [index, body] of chunks.entries()) {
+    const userPrompt =
+      `Extract all "${entityType}" entities from document chunk ${index + 1} of ${chunks.length}.` +
+      (truncated
+        ? " The source exceeded the extraction safety cap; this chunk is within the explicitly reported bounded portion."
+        : "") +
+      `\n\n---\n${body}`;
+
+    // Strict structured output gives a schema-shaped result; temperature 0 for
+    // deterministic extraction. Chunking prevents a single large PDF from
+    // exceeding the model/account TPM request ceiling.
+    const request = (strict: boolean) =>
+      client.chat.completions.create({
+        model,
+        max_tokens: 4096,
+        temperature: 0,
+        messages: [
+          {
+            role: "system",
+            content: strict
+              ? EXTRACTION_GUIDANCE
+              : `${EXTRACTION_GUIDANCE}\nReturn only one JSON object matching this schema. Do not repeat or describe the schema:\n${JSON.stringify(inputSchema)}`,
+          },
+          { role: "user", content: userPrompt },
+        ],
+        response_format: strict
+          ? {
+              type: "json_schema",
+              json_schema: {
+                name: `${entityType}_extraction`,
+                strict: true,
+                schema: inputSchema,
+              },
+            }
+          : { type: "json_object" },
+      });
+
+    let response;
+    try {
+      response = await request(true);
+    } catch (error) {
+      if (!isStructuredOutputValidationError(error)) throw error;
+      // Some Groq model/version combinations reject their own strict-schema
+      // output for an empty chunk. JSON-object mode still guarantees JSON; our
+      // Zod parse below remains mandatory and fails loud on any shape mismatch.
+      response = await request(false);
+    }
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error(
+        `Structured extraction for ${entityType} chunk ${index + 1}/${chunks.length} returned no content (finish_reason: ${response.choices[0]?.finish_reason}).`,
+      );
+    }
+
+    let raw: unknown;
+    try {
+      raw = JSON.parse(content);
+    } catch {
+      throw new Error(
+        `Extraction for ${entityType} chunk ${index + 1}/${chunks.length} returned invalid JSON.`,
+      );
+    }
+    const parsed = outputSchema.safeParse(raw);
+    if (!parsed.success) {
+      throw new Error(
+        `Extraction for ${entityType} chunk ${index + 1}/${chunks.length} did not match the expected schema: ${parsed.error.issues[0]?.message ?? "invalid"}`,
+      );
+    }
+    rows.push(
+      ...(parsed.data.entities as ExtractedRow[]).filter((row) =>
+        hasMinimumEntityIdentity(entityType, row.data),
+      ),
     );
   }
 
-  let raw: unknown;
-  try {
-    raw = JSON.parse(content);
-  } catch {
-    throw new Error(`Extraction for ${entityType} returned invalid JSON arguments.`);
-  }
-  const parsed = outputSchema.safeParse(raw);
-  if (!parsed.success) {
-    throw new Error(
-      `Extraction for ${entityType} did not match the expected schema: ${parsed.error.issues[0]?.message ?? "invalid"}`,
-    );
-  }
-  return { rows: parsed.data.entities as ExtractedRow[], truncated };
+  // Adjacent source slices can repeat headers or rows. De-duplicate identical
+  // structured values while retaining the first verbatim evidence pointer.
+  const uniqueRows = [...new Map(rows.map((row) => [JSON.stringify(row.data), row])).values()];
+  return { rows: uniqueRows, truncated };
 }
 
 export type DocumentExtractionResult = {

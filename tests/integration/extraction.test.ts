@@ -1,5 +1,6 @@
-import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import { createIntegrationSql, type Sql } from "./db";
 
 /**
  * Verifies the human-in-the-loop rule (task 2.6) against the real DB: only
@@ -35,7 +36,7 @@ describe.skipIf(!TEST_DB)("Extraction confirmation (human-in-the-loop)", () => {
   }
 
   beforeAll(async () => {
-    sql = postgres(TEST_DB!, { max: 1, ssl: false, onnotice: () => {} });
+    sql = createIntegrationSql(TEST_DB!);
     await sql.begin(async (tx) => {
       await tx`select set_config('app.purge_audit','on',true)`;
       await tx`delete from auth.users where id = ${OWNER}`;
