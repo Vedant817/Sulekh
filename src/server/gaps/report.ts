@@ -69,7 +69,9 @@ export async function buildCoverageReport(sql: Sql, projectId: string): Promise<
   const notApplicable = requirements.filter((r) => r.status === "not_applicable").length;
   const missing = requirements.filter((r) => r.status === "missing").length;
   const mandatory = requirements.filter((r) => r.mandatory).length;
-  const mandatoryMissing = requirements.filter((r) => r.mandatory && r.status === "missing").length;
+  const mandatoryMissing = requirements.filter(
+    (r) => r.mandatory && r.status !== "covered" && r.status !== "not_applicable",
+  ).length;
   const applicable = total - notApplicable;
   const coveragePercent = applicable === 0 ? 0 : Math.round((covered / applicable) * 1000) / 10;
 

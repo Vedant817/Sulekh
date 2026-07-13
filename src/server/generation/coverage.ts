@@ -67,6 +67,7 @@ export function checkCoverage(
   claimedCodes: string[],
 ): CoverageResult[] {
   const claimed = new Set(claimedCodes);
+  const hasUnresolvedGaps = parseGapMarkers(sectionMarkdown).length > 0;
   const haystack = stripGapMarkers(sectionMarkdown).toLowerCase();
 
   return requirements.map((req) => {
@@ -78,7 +79,7 @@ export function checkCoverage(
     let status: CoverageStatus;
     if (ratio >= 0.5) {
       present = true;
-      status = "covered";
+      status = hasUnresolvedGaps ? "partial" : "covered";
     } else if (ratio > 0) {
       present = true;
       status = "partial";

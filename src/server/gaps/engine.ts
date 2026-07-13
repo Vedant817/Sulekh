@@ -141,10 +141,10 @@ export async function runGapEngine(sql: Sql, projectId: string): Promise<GapEngi
     await tx`delete from public.gap_flags where project_id = ${projectId} and details->>'engine' = 'true'`;
 
     for (const c of coverage) {
-      if (c.status === "missing" && c.mandatory) {
+      if (c.status !== "covered" && c.mandatory) {
         await tx`insert into public.gap_flags (project_id, flag_type, severity, section_key, field_key, message, details)
           values (${projectId}, 'missing', 'blocker', ${c.sectionKey}, ${c.code},
-                  ${`Mandatory disclosure ${c.code} is missing or empty in "${c.sectionKey}".`},
+                  ${`Mandatory disclosure ${c.code} is missing or incomplete in "${c.sectionKey}".`},
                   ${tx.json({ engine: true, kind: "coverage" })})`;
       }
     }
@@ -155,7 +155,7 @@ export async function runGapEngine(sql: Sql, projectId: string): Promise<GapEngi
     }
   });
 
-  const missingMandatory = coverage.filter((c) => c.status === "missing" && c.mandatory).length;
+  const missingMandatory = coverage.filter((c) => c.status !== "covered" && c.mandatory).length;
   return {
     covered: coverage.filter((c) => c.status === "covered").length,
     partial: coverage.filter((c) => c.status === "partial").length,

@@ -109,4 +109,14 @@ describe("independent coverage check", () => {
     expect(cs04.present).toBe(false);
     expect(cs04.overclaimed).toBe(true);
   });
+
+  it("does not report full coverage while any disclosure gap remains", () => {
+    const md = [
+      "The promoter contribution and lock-in is disclosed for three years.",
+      "[[GAP: promoter contribution amount not provided]]",
+    ].join("\n");
+    const result = checkCoverage(md, reqs, ["CS-03"]);
+    const cs03 = result.find((r) => r.code === "CS-03")!;
+    expect(cs03.status).toBe("partial");
+  });
 });
