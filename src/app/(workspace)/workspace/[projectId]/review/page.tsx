@@ -1,7 +1,10 @@
+import { TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
+import { getSql } from "@/lib/db";
+import { buildCoverageReport } from "@/server/gaps/report";
 import {
   getApprovalState,
   getAuditLog,
@@ -14,18 +17,22 @@ import { ReviewConsole } from "./review-console";
 
 export default async function ReviewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ projectId: string }>;
+  searchParams: Promise<{ from?: string; section?: string; requirement?: string }>;
 }) {
   const { projectId } = await params;
+  const query = await searchParams;
   const [user, project] = await Promise.all([getCurrentUser(), getProject(projectId)]);
   if (!project) notFound();
 
-  const [sections, comments, approval, audit] = await Promise.all([
+  const [sections, comments, approval, audit, coverage] = await Promise.all([
     getReviewSections(projectId),
     getComments(projectId),
     getApprovalState(projectId),
     getAuditLog(projectId),
+    buildCoverageReport(getSql(), projectId),
   ]);
 
   const role = user?.profile?.role ?? "promoter";
@@ -45,6 +52,19 @@ export default async function ReviewPage({
             : "Review status and comments from your authorised intermediary. Only they can approve sections."}
         </p>
       </div>
+
+      {query.from === "gaps" ? (
+        <aside className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+          <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-700" aria-hidden="true" />
+          <div>
+            <h2 className="font-semibold">Flagged section opened for review</h2>
+            <p className="mt-1 text-sm text-amber-900/80">
+              The affected section is highlighted below
+              {query.requirement ? ` for requirement ${query.requirement}` : ""}. Review its gap messages, edit or request a source correction, then use <strong>Re-run checks</strong> without leaving this page.
+            </p>
+          </div>
+        </aside>
+      ) : null}
 
       <ReviewConsole
         projectId={projectId}
@@ -66,6 +86,14 @@ export default async function ReviewPage({
           mandatoryTotal: approval.mandatoryTotal,
           fullyApproved: approval.fullyApproved,
         }}
+        coverage={{
+          percent: coverage.coveragePercent,
+          mandatoryMissing: coverage.totals.mandatoryMissing,
+          openFlags: coverage.gaps.length,
+        }}
+        gaps={coverage.gaps}
+        focusedSection={query.from === "gaps" ? query.section ?? null : null}
+        focusedRequirement={query.from === "gaps" ? query.requirement ?? null : null}
         canReview={canReview}
       />
 

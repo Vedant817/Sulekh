@@ -1,9 +1,13 @@
 "use client";
 
+import { AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+
+import { recheckGapsAction } from "../gaps/actions";
 
 import {
   addCommentAction,
@@ -20,6 +24,13 @@ export type ConsoleSection = {
   isMandatory: boolean;
 };
 export type ConsoleComment = { sectionKey: string | null; comment: string | null; createdAt: string };
+export type ReviewGap = {
+  flagType: string;
+  severity: string;
+  sectionKey: string | null;
+  fieldKey: string | null;
+  message: string;
+};
 
 const STATUS_STYLE: Record<string, string> = {
   approved: "bg-emerald-100 text-emerald-700",
@@ -33,12 +44,18 @@ function SectionCard({
   projectId,
   section,
   comments,
+  gaps,
+  isFocused,
+  focusedRequirement,
   canReview,
   onChanged,
 }: {
   projectId: string;
   section: ConsoleSection;
   comments: ConsoleComment[];
+  gaps: ReviewGap[];
+  isFocused: boolean;
+  focusedRequirement: string | null;
   canReview: boolean;
   onChanged: () => void;
 }) {
@@ -47,6 +64,7 @@ function SectionCard({
   const [comment, setComment] = useState("");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const blockers = gaps.filter((gap) => gap.severity === "blocker");
 
   function act(fn: () => Promise<{ ok: boolean; error: string | null }>) {
     setError(null);
@@ -58,7 +76,11 @@ function SectionCard({
   }
 
   return (
-    <li id={section.sectionKey} className="flex scroll-mt-20 flex-col gap-3 rounded-xl border p-4">
+    <li
+      id={section.sectionKey}
+      data-focused={isFocused ? "true" : undefined}
+      className={`flex scroll-mt-32 flex-col gap-3 rounded-xl border p-4 transition-all ${isFocused ? "border-amber-400 bg-amber-50/60 ring-4 ring-amber-200" : blockers.length > 0 ? "border-destructive/30" : ""}`}
+    >
       <div className="flex items-center justify-between gap-3">
         <span className="font-medium">
           {section.title}
@@ -68,6 +90,32 @@ function SectionCard({
           {section.status.replace("_", " ")}
         </span>
       </div>
+
+      {isFocused ? (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+          Opened from Gaps & coverage{focusedRequirement ? <> for <strong>{focusedRequirement}</strong></> : null}. This highlight identifies the section that needs attention.
+        </div>
+      ) : null}
+
+      {gaps.length > 0 ? (
+        <div className="flex flex-col gap-2 rounded-lg border border-destructive/20 bg-destructive/[0.035] p-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <AlertTriangle className="size-4 text-destructive" aria-hidden="true" />
+            {gaps.length} open issue{gaps.length === 1 ? "" : "s"} for this section
+          </div>
+          <ul className="space-y-1.5 text-xs leading-5 text-muted-foreground">
+            {gaps.map((gap) => (
+              <li key={`${gap.flagType}-${gap.sectionKey}-${gap.fieldKey}-${gap.message}`}>
+                <span className="font-medium uppercase text-foreground">{gap.severity}</span>
+                {gap.fieldKey ? ` · ${gap.fieldKey}` : ""}: {gap.message}
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted-foreground">
+            Resolve the text or source data, then use <strong>Re-run checks</strong> above before approval.
+          </p>
+        </div>
+      ) : null}
 
       {editing ? (
         <div className="flex flex-col gap-2">
@@ -170,15 +218,26 @@ export function ReviewConsole({
   sections,
   comments,
   approval,
+  coverage,
+  gaps,
+  focusedSection,
+  focusedRequirement,
   canReview,
 }: {
   projectId: string;
   sections: ConsoleSection[];
   comments: ConsoleComment[];
   approval: { mandatoryApproved: number; mandatoryTotal: number; fullyApproved: boolean };
+  coverage: { percent: number; mandatoryMissing: number; openFlags: number };
+  gaps: ReviewGap[];
+  focusedSection: string | null;
+  focusedRequirement: string | null;
   canReview: boolean;
 }) {
   const router = useRouter();
+  const [checking, startChecking] = useTransition();
+  const [checkMessage, setCheckMessage] = useState<string | null>(null);
+  const [checkError, setCheckError] = useState<string | null>(null);
   const commentsBySection = new Map<string, ConsoleComment[]>();
   for (const c of comments) {
     if (!c.sectionKey) continue;
@@ -186,9 +245,71 @@ export function ReviewConsole({
     list.push(c);
     commentsBySection.set(c.sectionKey, list);
   }
+  const gapsBySection = new Map<string, ReviewGap[]>();
+  for (const gap of gaps) {
+    if (!gap.sectionKey) continue;
+    const list = gapsBySection.get(gap.sectionKey) ?? [];
+    list.push(gap);
+    gapsBySection.set(gap.sectionKey, list);
+  }
+  const openBlockers = gaps.filter((gap) => gap.severity === "blocker").length;
+
+  function recheck() {
+    setCheckMessage(null);
+    setCheckError(null);
+    startChecking(async () => {
+      const result = await recheckGapsAction(projectId);
+      if (!result.ok) {
+        setCheckError(result.error ?? "Re-check failed.");
+        return;
+      }
+      const mandatoryMissing = result.summary?.missingMandatory ?? 0;
+      const inconsistencies = result.summary?.inconsistencies ?? 0;
+      setCheckMessage(
+        `Checks refreshed: ${mandatoryMissing} mandatory gap${mandatoryMissing === 1 ? "" : "s"}, ${inconsistencies} ${inconsistencies === 1 ? "inconsistency" : "inconsistencies"}.`,
+      );
+      router.refresh();
+    });
+  }
 
   return (
     <div className="flex flex-col gap-6">
+      <section className={`flex flex-col gap-4 rounded-xl border p-4 ${openBlockers > 0 ? "border-destructive/30 bg-destructive/[0.025]" : "bg-muted/20"}`}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              {openBlockers > 0 ? (
+                <AlertTriangle className="size-4 text-destructive" aria-hidden="true" />
+              ) : (
+                <CheckCircle2 className="size-4 text-emerald-700" aria-hidden="true" />
+              )}
+              <h2 className="font-medium">Coverage is part of this review</h2>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {coverage.percent}% covered · {coverage.mandatoryMissing} mandatory missing · {coverage.openFlags} open flags
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={recheck} disabled={checking}>
+              <RefreshCw className={checking ? "animate-spin" : ""} aria-hidden="true" />
+              {checking ? "Re-checking…" : "Re-run checks"}
+            </Button>
+            <Link href={`/workspace/${projectId}/gaps`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              Full coverage report
+            </Link>
+          </div>
+        </div>
+        {openBlockers > 0 ? (
+          <p className="text-sm text-destructive">
+            Resolve the highlighted blocker messages before approval whenever possible. You can edit and re-check without leaving this workspace.
+          </p>
+        ) : (
+          <p className="text-sm text-emerald-700">No blocker flags are open. Continue the section-by-section legal and factual review.</p>
+        )}
+        {checkMessage ? <p aria-live="polite" className="text-sm text-emerald-700">{checkMessage}</p> : null}
+        {checkError ? <p role="alert" className="text-sm text-destructive">{checkError}</p> : null}
+      </section>
+
       <div className="flex items-center justify-between rounded-xl border p-4">
         <div className="flex flex-col">
           <span className="font-medium">
@@ -220,6 +341,9 @@ export function ReviewConsole({
               projectId={projectId}
               section={s}
               comments={commentsBySection.get(s.sectionKey) ?? []}
+              gaps={gapsBySection.get(s.sectionKey) ?? []}
+              isFocused={focusedSection === s.sectionKey}
+              focusedRequirement={focusedSection === s.sectionKey ? focusedRequirement : null}
               canReview={canReview}
               onChanged={() => router.refresh()}
             />

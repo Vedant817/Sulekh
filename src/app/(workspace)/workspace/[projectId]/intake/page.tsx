@@ -1,4 +1,4 @@
-import { Check, Circle, FileCheck2, FileUp, ListChecks, WandSparkles } from "lucide-react";
+import { Check, Circle, FileCheck2, FileUp, ListChecks, TriangleAlert, WandSparkles } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -46,10 +46,13 @@ function StepLink({ step, index }: { step: SetupStep; index: number }) {
 
 export default async function IntakePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ projectId: string }>;
+  searchParams: Promise<{ from?: string; section?: string; requirement?: string; focus?: string }>;
 }) {
   const { projectId } = await params;
+  const query = await searchParams;
   const project = await getProject(projectId);
   if (!project) notFound();
 
@@ -88,6 +91,9 @@ export default async function IntakePage({
     },
   ];
   const completedSteps = steps.filter((step) => step.complete).length;
+  const focusedSetupStep = query.from === "gaps" ? query.focus : null;
+  const focusedStepClass =
+    "border border-amber-400 bg-amber-50/60 ring-4 ring-amber-200";
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-7">
@@ -112,6 +118,28 @@ export default async function IntakePage({
           ) : null}
         </div>
       </div>
+
+      {query.from === "gaps" ? (
+        <aside className="flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-700" aria-hidden="true" />
+            <div>
+              <h2 className="font-semibold">You are correcting a flagged disclosure</h2>
+              <p className="mt-1 text-sm text-amber-900/80">
+                Update the issuer facts or confirmed extracted values for
+                {query.section ? ` “${query.section}”` : " the affected section"}
+                {query.requirement ? ` (${query.requirement})` : ""}. Then regenerate the draft and re-run coverage checks.
+              </p>
+            </div>
+          </div>
+          <Link
+            href={`/workspace/${projectId}/gaps`}
+            className="shrink-0 text-sm font-medium underline underline-offset-4"
+          >
+            Back to gaps
+          </Link>
+        </aside>
+      ) : null}
 
       <div className="grid gap-8 lg:grid-cols-[16rem_minmax(0,1fr)]">
         <aside className="lg:relative">
@@ -140,7 +168,11 @@ export default async function IntakePage({
         </aside>
 
         <main className="min-w-0 space-y-8">
-          <section id="details" className="scroll-mt-6 space-y-4">
+          <section
+            id="details"
+            data-focused={focusedSetupStep === "details" ? "true" : undefined}
+            className={`scroll-mt-28 space-y-4 rounded-xl p-1 transition-all ${focusedSetupStep === "details" ? focusedStepClass : ""}`}
+          >
             <div className="flex items-start gap-3">
               <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <ListChecks className="size-4" aria-hidden="true" />
@@ -155,7 +187,7 @@ export default async function IntakePage({
             <IntakeForm projectId={projectId} initialAnswers={answers} />
           </section>
 
-          <section id="documents" className="scroll-mt-6 space-y-4 border-t pt-8">
+          <section id="documents" className="scroll-mt-28 space-y-4 rounded-xl border-t pt-8">
             <div className="flex items-start gap-3">
               <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <FileUp className="size-4" aria-hidden="true" />
@@ -173,7 +205,11 @@ export default async function IntakePage({
             <DocumentList projectId={projectId} documents={documents} />
           </section>
 
-          <section id="review" className="scroll-mt-6 space-y-4 border-t pt-8">
+          <section
+            id="review"
+            data-focused={focusedSetupStep === "review" ? "true" : undefined}
+            className={`scroll-mt-28 space-y-4 rounded-xl border-t pt-8 transition-all ${focusedSetupStep === "review" ? focusedStepClass : ""}`}
+          >
             <div className="flex items-start gap-3">
               <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <FileCheck2 className="size-4" aria-hidden="true" />

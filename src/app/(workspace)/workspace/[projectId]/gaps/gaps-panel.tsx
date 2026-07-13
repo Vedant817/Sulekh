@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowRight, CheckCircle2, RefreshCw, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -7,6 +8,7 @@ import { useState, useTransition } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 
 import { recheckGapsAction } from "./actions";
+import { gapAction } from "./gap-navigation";
 
 type Gap = {
   flagType: string;
@@ -15,16 +17,6 @@ type Gap = {
   fieldKey: string | null;
   message: string;
 };
-
-/** Map a flag to the editor where it can be fixed (jump-to-fix). */
-function fixHref(projectId: string, gap: Gap): string {
-  if (gap.flagType === "inconsistent") {
-    // Reconciliation issues are fixed in the confirmed source data.
-    return `/workspace/${projectId}/documents`;
-  }
-  // Coverage gaps are fixed by (re)generating / editing the section.
-  return `/workspace/${projectId}/generate${gap.sectionKey ? `#${gap.sectionKey}` : ""}`;
-}
 
 const SEV_STYLE: Record<string, string> = {
   blocker: "bg-destructive/10 text-destructive",
@@ -35,9 +27,11 @@ const SEV_STYLE: Record<string, string> = {
 export function GapsPanel({
   projectId,
   gaps,
+  canReview,
 }: {
   projectId: string;
   gaps: Gap[];
+  canReview: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -54,49 +48,75 @@ export function GapsPanel({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          Open flags ({gaps.length})
-        </h2>
-        <Button size="sm" variant="outline" onClick={recheck} disabled={pending}>
-          {pending ? "Re-checking…" : "Re-run checks"}
-        </Button>
+      <div className="flex flex-col gap-3 rounded-xl border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="font-medium">Resolve issues from the source, then re-check</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {canReview
+              ? "Each action opens and highlights the affected review section so you can edit it or request a promoter correction."
+              : "Each action takes you to issuer setup so you can correct evidence-backed data before regenerating the draft."}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
+          <Button size="sm" variant="outline" onClick={recheck} disabled={pending}>
+            <RefreshCw className={pending ? "animate-spin" : ""} aria-hidden="true" />
+            {pending ? "Re-checking…" : "Re-run checks"}
+          </Button>
+          <span className="text-xs text-muted-foreground">Uses the latest draft and confirmed source data.</span>
+        </div>
       </div>
+      <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+        Open flags ({gaps.length})
+      </h2>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {gaps.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-6 text-center text-sm text-emerald-600">
-          No open flags — coverage and consistency checks pass.
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed p-6 text-center text-sm text-emerald-700">
+          <CheckCircle2 className="size-4" aria-hidden="true" />
+          No open flags — coverage and consistency checks pass. Continue to intermediary review.
         </div>
       ) : (
         <ul className="flex flex-col gap-2">
-          {gaps.map((g, i) => (
-            <li
-              key={`${g.sectionKey}-${g.fieldKey}-${i}`}
-              className="flex items-start justify-between gap-3 rounded-xl border p-3"
-            >
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${SEV_STYLE[g.severity] ?? ""}`}
-                  >
-                    {g.severity}
-                  </span>
-                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                    {g.flagType}
-                    {g.sectionKey ? ` · ${g.sectionKey}` : ""}
-                    {g.fieldKey ? ` · ${g.fieldKey}` : ""}
-                  </span>
-                </div>
-                <span className="text-sm">{g.message}</span>
-              </div>
-              <Link
-                href={fixHref(projectId, g)}
-                className={buttonVariants({ variant: "ghost", size: "sm" })}
+          {gaps.map((g) => {
+            const action = gapAction(projectId, g, canReview);
+            return (
+              <li
+                key={`${g.flagType}-${g.sectionKey}-${g.fieldKey}-${g.message}`}
+                className={`flex flex-col gap-3 rounded-xl border p-4 ${g.severity === "blocker" ? "border-destructive/30 bg-destructive/[0.025]" : ""}`}
               >
-                Fix →
-              </Link>
-            </li>
-          ))}
+                <div className="flex items-start gap-3">
+                  <TriangleAlert
+                    className={`mt-0.5 size-4 shrink-0 ${g.severity === "blocker" ? "text-destructive" : "text-amber-600"}`}
+                    aria-hidden="true"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${SEV_STYLE[g.severity] ?? ""}`}
+                      >
+                        {g.severity}
+                      </span>
+                      <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                        {g.flagType}
+                        {g.sectionKey ? ` · ${g.sectionKey}` : ""}
+                        {g.fieldKey ? ` · ${g.fieldKey}` : ""}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm font-medium">{g.message}</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{action.guidance}</p>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Link
+                    href={action.href}
+                    aria-label={`${action.label}: ${g.message}`}
+                    className={buttonVariants({ variant: g.severity === "blocker" ? "default" : "outline", size: "sm" })}
+                  >
+                    {action.label} <ArrowRight aria-hidden="true" />
+                  </Link>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

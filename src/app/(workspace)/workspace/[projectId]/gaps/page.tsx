@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { getCurrentUser } from "@/lib/auth";
 import { getSql } from "@/lib/db";
 import { buildCoverageReport } from "@/server/gaps/report";
 import { getProject } from "@/server/projects";
@@ -20,7 +21,7 @@ export default async function GapsPage({
   params: Promise<{ projectId: string }>;
 }) {
   const { projectId } = await params;
-  const project = await getProject(projectId); // RLS access check
+  const [project, user] = await Promise.all([getProject(projectId), getCurrentUser()]);
   if (!project) notFound();
 
   const report = await buildCoverageReport(getSql(), projectId);
@@ -46,7 +47,14 @@ export default async function GapsPage({
         <Stat label="Open flags" value={`${report.gaps.length}`} />
       </div>
 
-      <GapsPanel projectId={projectId} gaps={report.gaps} />
+      <GapsPanel
+        projectId={projectId}
+        gaps={report.gaps}
+        canReview={
+          user?.profile?.role === "admin" ||
+          (user?.profile?.role === "intermediary" && project.assigned_intermediary_id === user.id)
+        }
+      />
 
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
