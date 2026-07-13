@@ -4,7 +4,7 @@ import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 import { getGroq, getModels } from "@/lib/groq";
-import { isStructuredOutputValidationError } from "@/lib/groq-errors";
+import { formatGroqRateLimitError, isStructuredOutputValidationError } from "@/lib/groq-errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chunkExtractionText } from "@/server/extraction/chunks";
 import { hasMinimumEntityIdentity } from "@/server/extraction/quality";
@@ -47,7 +47,7 @@ export async function extractEntities(
 
   const client = getGroq();
   const model = opts.model ?? getModels().drafting;
-  const { chunks, truncated } = chunkExtractionText(text);
+  const { chunks, truncated } = chunkExtractionText(text, entityType);
   const rows: ExtractedRow[] = [];
 
   for (const [index, body] of chunks.entries()) {
@@ -199,11 +199,13 @@ export async function extractFromDocument(params: {
 
     return { documentId: params.documentId, byType, total };
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Extraction failed";
+    const message =
+      formatGroqRateLimitError(err) ??
+      (err instanceof Error ? err.message : "Extraction failed");
     await admin
       .from("uploaded_documents")
       .update({ parse_status: "failed", parse_error: message })
       .eq("id", params.documentId);
-    throw err;
+    throw new Error(message, { cause: err });
   }
 }

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { isStructuredOutputValidationError } from "@/lib/groq-errors";
+import {
+  formatGroqRateLimitError,
+  isStructuredOutputValidationError,
+} from "@/lib/groq-errors";
 import {
   EXTRACTION_CHUNK_CHARS,
   MAX_EXTRACTION_TEXT_CHARS,
@@ -34,6 +37,28 @@ describe("chunkExtractionText", () => {
     expect(result.chunks.reduce((sum, chunk) => sum + chunk.length, 0)).toBe(
       MAX_EXTRACTION_TEXT_CHARS,
     );
+  });
+
+  it("selects audited-statement windows beyond the front of a long offer document", () => {
+    const text = [
+      "DOCUMENT COVER SHOULD NOT BE SELECTED",
+      "FRONT-ONLY ".repeat(13_000),
+      "RESTATED STATEMENT OF ASSETS AND LIABILITIES\nEquity share capital 541.83\n",
+      "middle ".repeat(8_000),
+      "RESTATED STATEMENT OF PROFIT AND LOSS\nRevenue from operations 4820.34\n",
+      "end ".repeat(5_000),
+    ].join("\n");
+
+    const result = chunkExtractionText(text, "financial_line_item");
+    const selected = result.chunks.join("\n");
+
+    expect(result.truncated).toBe(true);
+    expect(selected).toContain("RESTATED STATEMENT OF ASSETS AND LIABILITIES");
+    expect(selected).toContain("Equity share capital 541.83");
+    expect(selected).toContain("RESTATED STATEMENT OF PROFIT AND LOSS");
+    expect(selected).toContain("Revenue from operations 4820.34");
+    expect(selected).not.toContain("DOCUMENT COVER SHOULD NOT BE SELECTED");
+    expect(result.chunks.every((chunk) => chunk.length <= EXTRACTION_CHUNK_CHARS)).toBe(true);
   });
 });
 
@@ -72,5 +97,25 @@ describe("isStructuredOutputValidationError", () => {
     ).toBe(true);
     expect(isStructuredOutputValidationError({ status: 429, message: "rate limit" })).toBe(false);
     expect(isStructuredOutputValidationError(new Error("network failure"))).toBe(false);
+  });
+});
+
+describe("formatGroqRateLimitError", () => {
+  it("keeps recovery timing while removing provider internals", () => {
+    const result = formatGroqRateLimitError({
+      status: 429,
+      message:
+        '429 {"error":{"message":"Rate limit reached for model `model-id` in organization `org_secret` on tokens per day. Please try again in 5m1.0176s. Need more tokens?","code":"rate_limit_exceeded"}}',
+    });
+
+    expect(result).toBe(
+      "AI extraction is temporarily paused because the provider token limit was reached. Retry in about 5m 2s. Your document is stored securely and does not need to be uploaded again.",
+    );
+    expect(result).not.toContain("org_secret");
+    expect(result).not.toContain("model-id");
+  });
+
+  it("does not rewrite unrelated failures", () => {
+    expect(formatGroqRateLimitError(new Error("network failure"))).toBeNull();
   });
 });
